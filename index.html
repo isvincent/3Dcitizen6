@@ -1,0 +1,2400 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D 知識星球：所有權的物權特性｜互動微縮世界教學與任務系統</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        * {
+            font-family: 'Noto Sans TC', 'Inter', sans-serif;
+            user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: radial-gradient(circle at 35% 30%, #1e293b 0%, #090d16 75%, #020617 100%);
+        }
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+        }
+        .glass-pill {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        /* Custom Scrollbar */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.35);
+            border-radius: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
+            border-radius: 8px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: rgba(250, 204, 21, 0.7);
+        }
+        /* 3D Projected Floating Pins */
+        .building-label {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            pointer-events: auto;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease;
+            z-index: 12;
+        }
+        .building-label:hover {
+            transform: translate(-50%, -112%) scale(1.08);
+            z-index: 25;
+        }
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.75); }
+            70% { box-shadow: 0 0 0 11px rgba(250, 204, 21, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+        }
+        .active-pin {
+            animation: pulse-ring 2s infinite;
+        }
+        @media print {
+            .no-print { display: none !important; }
+            body, html { overflow: visible !important; background: white !important; }
+            #certificate-modal { position: static !important; display: block !important; background: white !important; }
+            #print-modal { box-shadow: none !important; border: 1px solid #cbd5e1 !important; color: #0f172a !important; background: white !important; max-height: none !important; }
+        }
+    </style>
+</head>
+<body class="text-slate-100">
+
+    <!-- 3D WebGL Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- 3D Projected HTML Labels Container -->
+    <div id="labels-container" class="absolute inset-0 pointer-events-none z-10 overflow-hidden no-print"></div>
+
+    <!-- Hover 3D Object Tooltip -->
+    <div id="hover-tooltip" class="fixed pointer-events-none z-50 hidden px-3.5 py-2.5 rounded-2xl glass-panel text-xs font-medium text-white shadow-2xl border border-amber-400/40 no-print">
+        <div class="flex items-center gap-2">
+            <span id="tooltip-step" class="px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 font-black text-[10px]">第 1 站</span>
+            <span id="tooltip-title" class="font-extrabold text-amber-300 text-sm">建築名稱</span>
+        </div>
+        <div id="tooltip-sub" class="text-slate-300 mt-1 text-[11px]">點擊推進鏡頭並開啟 3D 機關與教材</div>
+    </div>
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="fixed top-3 left-3 right-3 z-30 flex flex-wrap items-center justify-between gap-2.5 pointer-events-none no-print">
+        <!-- Brand & Planet Status -->
+        <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 pointer-events-auto">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                <i data-lucide="globe-2" class="w-6 h-6 text-slate-950"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-400/30">公民與社會 2 · 第5章第2節</span>
+                    <span id="camera-angle-badge" class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300 border border-sky-400/30 hidden sm:inline-flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping"></span> 等角立體視角 (可 360° 旋轉檢視側面遮擋)
+                    </span>
+                </div>
+                <h1 class="text-base sm:text-lg font-black tracking-tight text-white">3D 知識星球：所有權的物權特性</h1>
+            </div>
+        </div>
+
+        <!-- Mode Switcher (Teacher Lecture vs. Student Quests) -->
+        <div class="glass-panel p-1.5 rounded-2xl flex items-center gap-1.5 pointer-events-auto">
+            <button id="btn-mode-teacher" onclick="switchMode('teacher')" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25">
+                <i data-lucide="presentation" class="w-4 h-4"></i>
+                <span>教師教學導覽</span>
+            </button>
+            <button id="btn-mode-student" onclick="switchMode('student')" class="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all text-slate-300 hover:text-white hover:bg-slate-800/60">
+                <i data-lucide="sword" class="w-4 h-4"></i>
+                <span>學生任務解鎖</span>
+                <span id="nav-quest-counter" class="px-1.5 py-0.5 text-[11px] rounded-md bg-slate-900/90 text-amber-300 border border-amber-400/30">0/6</span>
+            </button>
+        </div>
+
+        <!-- Right Controls: XP, Progress Bar, Sound, Certificate -->
+        <div class="glass-panel px-3.5 py-2 rounded-2xl flex items-center gap-2.5 pointer-events-auto">
+            <!-- Progress & XP -->
+            <div class="hidden md:flex items-center gap-2.5 pr-2.5 border-r border-slate-700/80">
+                <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i>
+                </div>
+                <div>
+                    <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                        <span>星球能量解鎖</span>
+                        <span id="xp-display" class="font-extrabold text-amber-300">0 XP</span>
+                    </div>
+                    <div class="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
+                        <div id="top-progress-bar" class="h-full bg-gradient-to-r from-amber-400 to-emerald-400 transition-all duration-500" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <button onclick="toggleSound()" id="btn-sound" title="音效開關" class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-300 border border-slate-600/50 transition">
+                <i data-lucide="volume-2" class="w-4 h-4"></i>
+            </button>
+
+            <button onclick="toggleLightingMode()" id="btn-lighting" title="切換太空日夜光影" class="p-2 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-amber-300 border border-slate-600/50 transition">
+                <i data-lucide="sun" class="w-4 h-4"></i>
+            </button>
+
+            <button onclick="openCertificateModal()" class="px-3 py-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold text-xs flex items-center gap-1.5 shadow-md transition">
+                <i data-lucide="award" class="w-4 h-4"></i>
+                <span class="hidden sm:inline">學習成果單</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- LEFT-BOTTOM 3D CAMERA & PERSPECTIVE TOOLKIT -->
+    <div class="fixed bottom-16 left-3 z-20 flex flex-col gap-2 pointer-events-none no-print">
+        <div class="glass-pill px-3 py-2 rounded-2xl flex flex-wrap items-center gap-1.5 pointer-events-auto shadow-lg">
+            <span class="text-[11px] font-bold text-slate-400 mr-1 flex items-center gap-1">
+                <i data-lucide="video" class="w-3.5 h-3.5 text-amber-400"></i> 3D 鏡頭控制：
+            </span>
+            <button onclick="resetCameraOverview()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-sky-300 border border-sky-500/30 transition flex items-center gap-1">
+                <i data-lucide="compass" class="w-3 h-3"></i> 星球全景
+            </button>
+            <button onclick="setLowAngleSideView()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-amber-300 border border-amber-500/30 transition flex items-center gap-1" title="壓低鏡頭檢視建築立體側面與前後遮擋關係">
+                <i data-lucide="box" class="w-3 h-3"></i> 低角度立體側面
+            </button>
+            <button onclick="toggleAutoOrbit()" id="btn-auto-orbit" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 border border-slate-600/50 transition flex items-center gap-1">
+                <i data-lucide="rotate-3d" class="w-3 h-3"></i> <span>環繞展示：關</span>
+            </button>
+        </div>
+        <div class="hidden xl:flex items-center gap-2 glass-pill px-3 py-1.5 rounded-xl text-[11px] text-slate-300">
+            <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5 text-amber-400"></i>
+            <span>左鍵 360° 旋轉（觀察側面與空間遮擋） · 滾輪縮放 · 右鍵平移 · 點擊 3D 建築推進導覽</span>
+        </div>
+    </div>
+
+    <!-- BOTTOM CAMERA TOUR DOCK (6 BUILDINGS QUICK FLY-TO) -->
+    <nav class="fixed bottom-3 left-3 right-3 lg:right-[460px] z-30 flex items-center justify-center pointer-events-none no-print">
+        <div class="glass-panel px-2.5 py-2 rounded-2xl flex items-center gap-1.5 sm:gap-2 overflow-x-auto max-w-full pointer-events-auto">
+            <button onclick="stepTour(-1)" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 shrink-0 transition" title="飛往上一座建築">
+                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+            </button>
+
+            <div id="dock-buttons" class="flex items-center gap-1.5 overflow-x-auto py-0.5">
+                <!-- Populated by JS -->
+            </div>
+
+            <button onclick="stepTour(1)" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 shrink-0 transition" title="飛往下一座建築">
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </nav>
+
+    <!-- FLOATING BUTTON TO RE-OPEN DRAWER WHEN MINIMIZED -->
+    <button id="btn-reopen-drawer" onclick="toggleDrawerMinimize(false)" class="fixed top-24 right-4 z-30 hidden glass-panel px-4 py-2.5 rounded-2xl text-xs font-extrabold text-amber-300 border border-amber-400/40 shadow-2xl items-center gap-2 hover:bg-slate-800 transition no-print">
+        <i data-lucide="panel-right-open" class="w-4 h-4"></i>
+        <span>展開教材與任務面板</span>
+    </button>
+
+    <!-- RIGHT INTERACTIVE DRAWER (TEACHER LECTURE & STUDENT QUESTS) -->
+    <aside id="main-drawer" class="fixed top-20 bottom-3 right-3 w-[calc(100vw-1.5rem)] sm:w-[440px] z-30 glass-panel rounded-3xl flex flex-col overflow-hidden transition-transform duration-300 no-print">
+        <!-- Drawer Header -->
+        <div class="p-4 border-b border-slate-700/80 bg-gradient-to-r from-slate-900/95 to-slate-800/85 flex items-start justify-between gap-2 shrink-0">
+            <div class="flex items-center gap-3">
+                <div id="zone-icon-box" class="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-amber-300 shrink-0">
+                    <i data-lucide="landmark" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <div class="flex items-center flex-wrap gap-1.5">
+                        <span id="zone-step-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-400/20 text-amber-300">第 1 站 / 共 6 站</span>
+                        <span id="zone-page-badge" class="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-sky-500/20 text-sky-300">課本 P.109</span>
+                        <span id="zone-lock-badge" class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-slate-700 text-slate-300">待解鎖</span>
+                    </div>
+                    <h2 id="zone-title" class="text-base sm:text-lg font-black text-white mt-1">載入中...</h2>
+                </div>
+            </div>
+            <button onclick="toggleDrawerMinimize(true)" class="p-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 shrink-0" title="收合面板以全螢幕欣賞 3D 星球">
+                <i data-lucide="panel-right-close" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- Sub-Tab Bar inside Drawer -->
+        <div class="px-4 py-2 bg-slate-900/75 border-b border-slate-800 flex items-center justify-between gap-2 shrink-0">
+            <div id="mode-indicator-pill" class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+                <span>教師教學與 3D 機關操作</span>
+            </div>
+            <button id="quick-switch-btn" onclick="toggleCurrentZoneMode()" class="text-xs font-semibold px-2.5 py-1 rounded-lg bg-indigo-500/20 hover:bg-indigo-500/35 text-indigo-300 border border-indigo-400/30 flex items-center gap-1 transition">
+                <i data-lucide="sword" class="w-3 h-3"></i>
+                <span>切換至本站任務挑戰</span>
+            </button>
+        </div>
+
+        <!-- Scrollable Content Body -->
+        <div id="drawer-body" class="p-4 overflow-y-auto custom-scroll flex-1 space-y-4 text-sm">
+            <!-- Dynamically populated -->
+        </div>
+
+        <!-- Drawer Footer Navigation -->
+        <div class="p-3 border-t border-slate-800 bg-slate-900/95 flex items-center justify-between gap-2 shrink-0">
+            <button onclick="stepTour(-1)" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 flex items-center gap-1.5 transition">
+                <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+                <span>上一座建築</span>
+            </button>
+            <div id="footer-progress-dots" class="flex items-center gap-1.5"></div>
+            <button onclick="stepTour(1)" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 flex items-center gap-1.5 transition shadow-md shadow-amber-500/20">
+                <span>下一座建築</span>
+                <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+        </div>
+    </aside>
+
+    <!-- STUDENT LEARNING CERTIFICATE & PORTFOLIO MODAL -->
+    <div id="certificate-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+        <div id="print-modal" class="glass-panel max-w-2xl w-full rounded-3xl p-6 sm:p-8 border border-amber-400/40 max-h-[90vh] overflow-y-auto custom-scroll">
+            <div class="flex items-start justify-between gap-4 border-b border-slate-700 pb-4">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-widest text-amber-400">3D KNOWLEDGE PLANET · CIVICS & SOCIETY</span>
+                    <h3 class="text-xl sm:text-2xl font-black text-white mt-1">3D 知識星球：所有權的物權特性 · 學習成果單</h3>
+                    <p class="text-xs text-slate-400 mt-1">教材範圍：《公民與社會 2》第 5 章第 2 節（P.109–P.115 所有權的特性、保障與限制）</p>
+                </div>
+                <button onclick="closeCertificateModal()" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 no-print">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Student Info & Score Summary -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 my-5">
+                <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-700">
+                    <label class="text-[11px] text-slate-400 block">班級 / 座號 / 姓名</label>
+                    <input id="student-name-input" type="text" placeholder="例如：高一忠 08 王小明" class="mt-1 w-full bg-transparent text-white font-bold text-sm focus:outline-none border-b border-amber-400/50 pb-1">
+                </div>
+                <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-700">
+                    <div class="text-[11px] text-slate-400">星球建築解鎖進度</div>
+                    <div id="cert-progress-text" class="text-xl font-black text-emerald-400 mt-1">0 / 6 座建築</div>
+                </div>
+                <div class="p-3.5 rounded-2xl bg-slate-900/90 border border-slate-700">
+                    <div class="text-[11px] text-slate-400">法治積分與星球頭銜</div>
+                    <div id="cert-xp-text" class="text-lg font-black text-amber-400 mt-1">0 XP · 見習星際公民</div>
+                </div>
+            </div>
+
+            <!-- 6 Zones Mastery Checklist -->
+            <div class="space-y-2.5 mb-5">
+                <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">六大主題建築解鎖紀錄與法條核心</h4>
+                <div id="cert-zone-list" class="grid grid-cols-1 sm:grid-cols-2 gap-2.5"></div>
+            </div>
+
+            <!-- Citizen Forum Reflection Input -->
+            <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-700 mb-6">
+                <label class="text-xs font-bold text-amber-300 block mb-1.5">💡 公民論壇思辨紀錄（課本 P.112 / P.115：為什麼物權須優先於債權？或智慧財產權的保障應如何與公共利益調和？）</label>
+                <textarea id="student-reflection" rows="3" placeholder="請寫下你在探索 3D 知識星球後的法律見解與思辨心得..." class="w-full bg-slate-950/60 rounded-xl p-2.5 text-xs text-slate-100 border border-slate-700 focus:outline-none focus:border-amber-400"></textarea>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-end gap-3 no-print">
+                <button onclick="copySummaryToClipboard()" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 flex items-center gap-2 border border-slate-600">
+                    <i data-lucide="copy" class="w-4 h-4 text-sky-400"></i>
+                    <span id="copy-btn-text">複製學習紀錄文字</span>
+                </button>
+                <button onclick="window.print()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-xs font-bold text-slate-950 flex items-center gap-2 shadow-lg shadow-amber-500/20">
+                    <i data-lucide="printer" class="w-4 h-4"></i>
+                    <span>列印 / 存為 PDF 證書</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /********************************************************************
+         * 1. SOUND SYNTHESIS (Web Audio API - No external audio files needed)
+         ********************************************************************/
+        let audioCtx = null;
+        let soundEnabled = true;
+
+        function playTone(type) {
+            if (!soundEnabled) return;
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'fly') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(320, now);
+                    osc.frequency.exponentialRampToValueAtTime(580, now + 0.16);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+                    osc.start(now);
+                    osc.stop(now + 0.18);
+                } else if (type === 'switch') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(480, now);
+                    osc.frequency.setValueAtTime(640, now + 0.06);
+                    gain.gain.setValueAtTime(0.09, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+                    osc.start(now);
+                    osc.stop(now + 0.14);
+                } else if (type === 'correct') {
+                    [523.25, 659.25, 783.99, 1046.5].forEach((freq, idx) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.type = 'triangle';
+                        o.frequency.value = freq;
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        g.gain.setValueAtTime(0.09, now + idx * 0.07);
+                        g.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.25);
+                        o.start(now + idx * 0.07);
+                        o.stop(now + idx * 0.07 + 0.25);
+                    });
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(210, now);
+                    osc.frequency.linearRampToValueAtTime(150, now + 0.22);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.24);
+                    osc.start(now);
+                    osc.stop(now + 0.24);
+                }
+            } catch (e) {}
+        }
+
+        function toggleSound() {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('btn-sound');
+            btn.innerHTML = soundEnabled
+                ? `<i data-lucide="volume-2" class="w-4 h-4 text-amber-300"></i>`
+                : `<i data-lucide="volume-x" class="w-4 h-4 text-slate-400"></i>`;
+            lucide.createIcons();
+        }
+
+        /********************************************************************
+         * 2. COMPLETE TEXTBOOK CURRICULUM DATA (P.109 - P.115)
+         ********************************************************************/
+        const ZONES_DATA = [
+            {
+                id: 'market',
+                step: 1,
+                page: '課本 P.109',
+                name: '萬物市集與柴犬寵物屋',
+                shortTitle: '民法之物',
+                subtitle: '權利主體 vs. 權利客體：不動產與動產之區分',
+                icon: 'store',
+                pos: { x: -10.5, y: 0, z: 9.2 },
+                camOffset: { x: -22, y: 15, z: 23 },
+                legalBadge: '民法第66・67條｜財產權保障與物之分類',
+                teacher: {
+                    summary: '財產權保障人民可依據財產的狀態，自由使用、收益及處分的權利，目的在於確保人民可持有維繫個人生存及自由發展人格之生活資源。',
+                    keyPoints: [
+                        {
+                            title: '1. 歷史演進：私有財產神聖不可侵犯',
+                            desc: '從古羅馬時期就奠定「私有財產神聖不可侵犯」原則。工業革命後，工人領取薪資維持生活，私有財產權保障成為人們勤奮工作的動力之一，同時促使資源運作更有效率。'
+                        },
+                        {
+                            title: '2. 權利主體（人）vs. 權利客體（物與精神產物）',
+                            desc: '民法以「人」為權利主體、以「物」為權利客體。權利客體是指受權利主體支配之各項權利的對象或內容，不僅包括有形的「物」，也包括專利權、著作權等無形精神產物。'
+                        },
+                        {
+                            title: '3. 小辭典：民法上的「不動產」與「動產」',
+                            desc: '【不動產】指土地及附著在土地上之定著物（例如：房子）；【動產】則是不動產以外的東西（例如：手機、衣服、汽機車）。從法律觀點，「寵物（貓狗）」也是「物」，屬於動產的一種！'
+                        }
+                    ],
+                    interactiveWidget: 'propertyInspector',
+                    discussionPrompt: '【課堂思辨】為什麼在民法上，「毛小孩（寵物柴犬）」被歸類為「物（動產）」而非「權利主體（人）」？若他人的寵物被撞傷，飼主在民法上主張的權利性質是什麼？',
+                    teacherAnswer: '民法採「人（權利主體）／物（權利客體）」二元體系，自然人與法人才能作為權利主體。寵物雖有生命，但在現行民法仍屬「動產（物）」，因此寵物受傷在民法上屬於對飼主「所有權（財產權）」之侵害；不過我國另有《動物保護法》特別規範不得虐待動物，賦予生命保護。'
+                },
+                quests: [
+                    {
+                        q: 'Q1. 根據課本 P.109「物的小辭典」與民法規範，下列萬物市集中的哪一項屬於民法上的「不動產」？',
+                        options: [
+                            'A. 停放在市集旁價值百萬的紅色跑車',
+                            'B. 附著於土地上的雙層磚造洋房與其坐落土地',
+                            'C. 寵物屋裡剛認養的柴犬與波斯貓',
+                            'D. 創作者註冊的音樂著作權與發明專利'
+                        ],
+                        correct: 1,
+                        explanation: '正確！民法規定「不動產」指土地及附著在土地上之定著物（如房屋）。跑車與寵物屬於「動產」，而著作權、專利權屬於無形的精神產物。'
+                    },
+                    {
+                        q: 'Q2. 小辰帶著心愛的柴犬到市集散步，從民法「權利主體」與「權利客體」的觀點來看，下列敘述何者正確？',
+                        options: [
+                            'A. 柴犬具有生命，因此在民法上與小辰同為「權利主體」',
+                            'B. 小辰是權利主體，柴犬在法律觀點下屬於「不動產」',
+                            'C. 小辰是權利主體，柴犬在法律觀點下屬於「物（動產的一種）」',
+                            'D. 專利權與著作權因為摸不到，所以不能作為權利客體'
+                        ],
+                        correct: 2,
+                        explanation: '完全正確！民法以「人」為權利主體，從法律觀點，寵物也是「物」，屬於動產的一種（權利客體）。'
+                    }
+                ]
+            },
+            {
+                id: 'river',
+                step: 2,
+                page: '課本 P.110',
+                name: '綠川養豬場與環保水門',
+                shortTitle: '保障與環保',
+                subtitle: '國家為何需要保障所有權？如何減少對他人的負面影響？',
+                icon: 'waves',
+                pos: { x: -10.5, y: 0, z: -8.5 },
+                camOffset: { x: -22, y: 15, z: -20 },
+                legalBadge: '憲法第15條｜社會契約論與環境公害防治',
+                teacher: {
+                    summary: '所有權是指所有權人可以自由的使用、收益、處分所有物，並且排除他人干涉的權利。我國《憲法》第 15 條明文規定：「人民之財產權，應予保障。」',
+                    keyPoints: [
+                        {
+                            title: '1. 現代市場經濟制度的核心',
+                            desc: '當「物」的所有權界定清楚後，人們可以透過交易來分配各自擁有的物品，達成彼此最大利益並滿足雙方需求。但為維護公共利益，國家必須藉由正當程序對所有權加以限制，因此所有權並非受到絕對的保護。'
+                        },
+                        {
+                            title: '2. 無主物困境與環境公害（課本圖 5-2-1 養豬場廢水案）',
+                            desc: '若自然資源屬於「無主物」，當有人因為私利（如養豬場）排放廢水進而汙染河川生態時，全體人民只能被迫接受環境公害，導致社會無法有效率地運作。'
+                        },
+                        {
+                            title: '3. 社會契約論與國家的管理權責',
+                            desc: '從社會契約論出發，國家的出現源於人民讓渡部分權利，進而追求全體利益極大化。因此自然資源歸於政府的財產，政府具有支配、管理河川的權力，供人民日常自由使用之餘，透過法律規範防止環境公害對多數人民造成負面影響，或透過協商加以處理。'
+                        }
+                    ],
+                    interactiveWidget: 'riverToggle',
+                    discussionPrompt: '【課堂思辨】請點擊上方「河川廢水管制 3D 模擬器」觀察河道變化：若養豬場業者主張「豬隻與養豬場是我的私有財產，怎麼排廢水是我的自由」，國家可以限制他嗎？根據是什麼？',
+                    teacherAnswer: '可以！雖然《憲法》第 15 條保障人民財產權，但所有權並非絕對不受限制。基於社會契約論與公共利益，自然資源（河川）由政府管理支配，國家必須透過環保法律與正當程序限制私人排汙，避免少數人為私利將環境公害轉嫁給全體國民。'
+                },
+                quests: [
+                    {
+                        q: 'Q1. 課本圖 5-2-1 指出臺灣豬隻養殖業過去曾大量排放廢水汙染河川。從「所有權保障與社會契約論」的觀點，下列敘述何者正確？',
+                        options: [
+                            'A. 河川屬於無主物，先排放廢水的養豬場即自動取得河川所有權',
+                            'B. 財產權受憲法第 15 條絕對保護，政府不得干涉養豬場排放廢水',
+                            'C. 人民讓渡部分權利組成國家，自然資源歸政府管理支配，可透過法律規範防止環境公害波及大眾',
+                            'D. 只要界定清楚豬隻的所有權，河川汙染就會自動消失，不需政府管理'
+                        ],
+                        correct: 2,
+                        explanation: '正確！從社會契約論出發，自然資源歸政府管理，供人民使用之餘，透過法律規範防止環境公害對多數人造成負面影響。'
+                    },
+                    {
+                        q: 'Q2. 為什麼現代民主國家與市場經濟制度特別重視「清楚界定並保障私有財產的所有權」？',
+                        options: [
+                            'A. 當所有權界定清楚後，人們才能透過交易分配物品，達成彼此最大利益並滿足需求',
+                            'B. 為了讓所有權人可以毫無限制地侵害公共利益',
+                            'C. 為了禁止人民進行任何買賣交易',
+                            'D. 因為憲法第 15 條規定所有財產都必須收歸國有'
+                        ],
+                        correct: 0,
+                        explanation: '答對了！保障私有財產所有權是現代市場經濟的核心，產權清楚界定才能讓交易順利進行、資源有效配置。'
+                    }
+                ]
+            },
+            {
+                id: 'studio',
+                step: 3,
+                page: '課本 P.111–112',
+                name: '小辰的 3C 創客工坊',
+                shortTitle: '四大特性',
+                subtitle: '直接支配、保護絕對、排他性、優先性（一物二賣案例）',
+                icon: 'laptop',
+                pos: { x: 0, y: 0, z: 9.5 },
+                camOffset: { x: 0, y: 15, z: 25 },
+                legalBadge: '所有權四大特性｜物權優先於債權',
+                teacher: {
+                    summary: '依據民法規範，所有權具有四大特性（以具完全行為能力的小辰擁有一臺筆記型電腦為例，參見課本圖 5-2-2 與圖 5-2-3）：',
+                    keyPoints: [
+                        {
+                            title: '1. 直接支配性 ＆ 2. 保護絕對性',
+                            desc: '【直接支配性】不需他人同意或許可，小辰可依自己意思占有、使用、收益與處分電腦（如送人、賣掉）。\n【保護絕對性】所有權屬於「絕對權」，可向任何人主張：「雖然電腦借給你很久，但還是我的！」任何人不得干涉。'
+                        },
+                        {
+                            title: '3. 排他性（一物一權 vs. 共有）',
+                            desc: '一個物品只會有一個所有權，不會同時存在兩個所有權（借用電腦的人不能主張把電腦賣掉換錢）；但同一個所有權可能由數人共享，即「共有」。'
+                        },
+                        {
+                            title: '4. 優先性（物權優先於債權：圖 5-2-3 經典案例）',
+                            desc: '小辰原本與【元元】約定以 $5,000 賣電腦（成立買賣債權契約，僅具相對效力），卻中途反悔將電腦賣給出價 $6,000 的【阿庭】並完成「交付」。此時阿庭取得電腦的「所有權（物權）」，優先於元元的「債權」，元元不得向阿庭主張電腦所有權！'
+                        }
+                    ],
+                    interactiveWidget: 'doubleSaleSim',
+                    discussionPrompt: '【課本 P.112 請想想看】\n1. 為什麼物權須優先於債權？倘若法律不是這樣規範，對於阿庭會有什麼影響呢？\n2. 日常買賣契約只要雙方同意即成立，不須書面，倘若一方反悔（如小辰），買賣雙方的權益該如何保障與救濟？',
+                    teacherAnswer: '1. 【對阿庭的影響】因為債權契約具有隱密性（只有小辰與元元知道 LINE 對話），若債權優先於物權，善意付錢拿到電腦的阿庭隨時會被先前簽約的人把電腦搶走，沒人敢安心買東西，交易秩序將崩潰。\n2. 【元元的權益保障】元元雖不能向阿庭要電腦，但因與小辰的買賣契約有效成立，元元可依「債權相對性」向違約的小辰請求「債務不履行之損害賠償」（或事先約定違約金、定金來強化保障）。'
+                },
+                quests: [
+                    {
+                        q: 'Q1. 【課本圖 5-2-3 案例】小辰先在手機上答應元元以 5,000 元賣筆電，隨後卻反悔將筆電賣給出價 6,000 元的阿庭並當面交付電腦。請問此時誰擁有筆電所有權？為什麼？',
+                        options: [
+                            'A. 元元；因為「先簽約者優先」，元元的買賣契約成立在先',
+                            'B. 阿庭；因為電腦已交付給阿庭取得物權，基於所有權的「優先性」，物權優先於元元的債權',
+                            'C. 元元與阿庭自動成為該臺筆電的「共有人」',
+                            'D. 小辰；因為一物二賣違反道德，所有交易全部無效'
+                        ],
+                        correct: 1,
+                        explanation: '太精準了！小辰將電腦交付給阿庭後，阿庭享有對電腦的物權（絕對權），優先於元元的債權（相對權），元元不得主張阿庭無電腦所有權。'
+                    },
+                    {
+                        q: 'Q2. 承上題，關於「債權相對性」與「物權絕對性」的比較，下列敘述何者正確？',
+                        options: [
+                            'A. 元元與小辰成立的買賣契約屬於「物權」，得對全世界不特定人主張',
+                            'B. 債權是僅得對特定人主張之權利（相對效力），因此元元只能向違約的小辰求償，不能向阿庭討電腦',
+                            'C. 借用小辰電腦的朋友，可以主張自己也同時擁有第二個獨立的所有權',
+                            'D. 民法禁止數人共享同一個所有權（即絕對不可能有「共有」制度）'
+                        ],
+                        correct: 1,
+                        explanation: '完全正確！課本 P.112 小辭典指出：債權僅得對特定人主張（相對效力），不能對抗優先取得電腦所有權（絕對權）的阿庭。'
+                    }
+                ]
+            },
+            {
+                id: 'court',
+                step: 4,
+                page: '課本 P.113',
+                name: '民法 767 號正義法院',
+                shortTitle: '物上請求權',
+                subtitle: '所有權的三大法律保障：返還、除去妨害、防止妨害',
+                icon: 'scale',
+                pos: { x: 0, y: 0, z: -8.8 },
+                camOffset: { x: 0, y: 15, z: -22 },
+                legalBadge: '民法第767條｜物上請求權三劍客',
+                teacher: {
+                    summary: '權利如果被侵害，必須有救濟方式！為了保障所有權的物權特性，《民法》第 767 條明定三大請求權（參見課本圖 5-2-4 小辰的電腦保障）：',
+                    keyPoints: [
+                        {
+                            title: '1. 所有物返還請求權（「把電腦還給我！」）',
+                            desc: '條文：「所有人對於無權占有或侵奪其所有物者，得請求返還之。」當他人偷走、搶奪或借期屆滿無權占有所有物時，所有權人可要求返還。'
+                        },
+                        {
+                            title: '2. 妨害除去請求權（「請你把電腦修理好／移開障礙！」）',
+                            desc: '條文：「對於妨害其所有權者，得請求除去之。」雖未占有所有權人之物，但其行為「已經妨害」所有權人的權利行使時（如弄壞電腦無法開機、違停車輛擋住自家車庫出入口），得請求除去其妨害。'
+                        },
+                        {
+                            title: '3. 妨害防止請求權（「借用規範：不可更動電腦設定！」）',
+                            desc: '條文：「有妨害其所有權之虞者，得請求防止之。」對於「未來可能會妨害」所有權行使的行為（如預先要求借用人不得改設定、鄰居施工危牆快倒塌壓到自家房屋），可預先要求防止。'
+                        }
+                    ],
+                    interactiveWidget: 'courtShieldSim',
+                    discussionPrompt: '【課堂思辨】若小辰的電腦被他人無權霸占或損壞，對方卻置之不理，小辰可以直接闖入對方家中砸門搶回電腦嗎？法律提供的正當途徑是什麼？',
+                    teacherAnswer: '原則上不得私自以暴力闖入他人住宅搶奪（除符合民法自助行為之嚴格緊急要件外）。課本 P.113 指出：若小辰的權利被侵害，可依民法第 767 條「提起民事訴訟」，請求法院判決命對方返還物品，或回復損壞的物品並透過強制執行實現權利！'
+                },
+                quests: [
+                    {
+                        q: 'Q1. 鄰居把大型廢棄沙發堆放在小辰家的一樓大門正前方（並未霸占小辰的房子內部），導致小辰一家人無法出入。小辰可依《民法》第 767 條主張何種權利要求鄰居搬走沙發？',
+                        options: [
+                            'A. 所有物返還請求權',
+                            'B. 妨害除去請求權',
+                            'C. 妨害防止請求權',
+                            'D. 動產善意取得請求權'
+                        ],
+                        correct: 1,
+                        explanation: '判斷正確！鄰居雖未占有小辰的房屋，但堆放沙發擋門的行為「已正在妨害」小辰行使房屋所有權，故應主張「妨害除去請求權」。'
+                    },
+                    {
+                        q: 'Q2. 隔壁工地施工不當導致圍牆嚴重傾斜，隨時有倒塌壓毀小辰家屋頂的危險（目前尚未倒塌）。小辰可依《民法》第 767 條預先向工地主張何種權利要求加固改善？',
+                        options: [
+                            'A. 所有物返還請求權',
+                            'B. 妨害除去請求權',
+                            'C. 妨害防止請求權',
+                            'D. 買賣契約解除權'
+                        ],
+                        correct: 2,
+                        explanation: '完全正確！對於「有妨害其所有權之虞者（尚未發生實際損害但有高度危險）」，所有權人得主張「妨害防止請求權」預先要求防止！'
+                    }
+                ]
+            },
+            {
+                id: 'landoffice',
+                step: 5,
+                page: '課本 P.114',
+                name: '地政事務所與陳太太別墅',
+                shortTitle: '限制與登記',
+                subtitle: '所有權的限制：物權法定主義、不動產登記生效 vs. 動產交付',
+                icon: 'file-signature',
+                pos: { x: 10.5, y: 0, z: 9.2 },
+                camOffset: { x: 22, y: 15, z: 23 },
+                legalBadge: '民法第758・761條｜物權法定與公示原則',
+                teacher: {
+                    summary: '古羅馬採取「絕對所有權原則」，不干涉個人使用方式；隨資本主義社會興起，對所有權的限制成為新趨勢，以避免權利過度擴張，保障社會大眾權益。',
+                    keyPoints: [
+                        {
+                            title: '1. 物權必須由法律規定，不能自行創設（物權法定主義）',
+                            desc: '因為物權優先於債權，又具有保護絕對性，對物權的保障必須考慮周全，不能由當事人自行約定。因此民法規定：「物權除依法律或習慣外，不得創設。」稱為「物權法定主義」。'
+                        },
+                        {
+                            title: '2. 不動產物權必須要登記（不動產登記生效主義：民法第 758 條）',
+                            desc: '不動產市場價值高，民法第 758 條第 1 項規定：「不動產物權，依法律行為而取得、設定、喪失及變更者，非經登記，不生效力。」\n【課本案例】陳太太將房屋賣給林先生，簽訂契約後，雙方必須到「地政事務所」進行土地登記簿移轉登記，才能正式將房屋所有權轉移給林先生！'
+                        },
+                        {
+                            title: '3. 小辭典對照：動產交付移轉所有權（民法第 761 條）',
+                            desc: '「動產物權之讓與，非將動產交付，不生效力。」（民法第 761 條第 1 項）。「交付」即占有的移轉，為動產物權行為的公示方法。'
+                        }
+                    ],
+                    interactiveWidget: 'landStampSim',
+                    discussionPrompt: '【課堂思辨】請點擊上方「地政事務所 3D 官印登記模擬器」：為什麼買手機（動產）只要店員把手機交給你（交付）就取得所有權，但林先生跟陳太太買房子（不動產）就算簽了約、付清 2,000 萬房款，沒去地政事務所登記前還不算屋主？',
+                    teacherAnswer: '因為不動產價值極高且固定在土地上無法隨身攜帶占有，第三人單憑外觀無法得知誰才是真正屋主或有無設定抵押權。透過地政機關「土地登記簿」強制登記才生效的公示制度，能徹底保障不動產重大交易安全！'
+                },
+                quests: [
+                    {
+                        q: 'Q1. 【課本 P.114 案例】陳太太要將花園別墅賣給林先生，雙方已經白紙黑字簽妥買賣契約，林先生也把頭期款匯給陳太太，但兩人尚未到地政事務所辦理移轉登記。請問此時誰擁有房屋所有權？',
+                        options: [
+                            'A. 林先生；因為買賣契約一經簽字，不動產所有權就自動轉移',
+                            'B. 林先生；因為已經匯款付錢，錢到產權到',
+                            'C. 陳太太；因為依民法第 758 條「不動產登記生效主義」，非經地政機關登記不生效力',
+                            'D. 房屋暫時變成無主物'
+                        ],
+                        correct: 2,
+                        explanation: '正確！依民法第 758 條第 1 項，不動產物權行為非經「登記（地政機關土地登記簿登記）」不生效力。未完成登記前，所有權人仍是陳太太。'
+                    },
+                    {
+                        q: 'Q2. 關於我國民法「物權法定主義」與「所有權移轉生效要件」的規範，下列敘述何者正確？',
+                        options: [
+                            'A. 買賣雙方只要合意，可以自己在契約中發明民法沒有規定的全新物權種類',
+                            'B. 購買智慧型手機或超商飲料（動產），必須去地政事務所辦理登記才取得所有權',
+                            'C. 動產物權之讓與，以「交付（占有的移轉）」作為生效要件（民法第 761 條）',
+                            'D. 現代民法完全沿用古羅馬「絕對所有權原則」，對所有權毫無任何限制'
+                        ],
+                        correct: 2,
+                        explanation: '完全正確！動產以「交付」生效（民法第 761 條），不動產以「登記」生效（民法第 758 條），且物權採「物權法定主義」不得自行創設。'
+                    }
+                ]
+            },
+            {
+                id: 'arcade',
+                step: 6,
+                page: '課本 P.115',
+                name: '台灣騎樓與開源創客館',
+                shortTitle: '公益調和',
+                subtitle: '私有財產與公共利益的調和：台灣騎樓設計、智慧財產權與開源運動',
+                icon: 'users',
+                pos: { x: 10.5, y: 0, z: -8.5 },
+                camOffset: { x: 22, y: 15, z: -20 },
+                legalBadge: '著作權法第1條｜騎樓通行權與合理使用',
+                teacher: {
+                    summary: '現代社會中，人與人互動緊密，若完全保障所有權有時會影響公共利益，此時需要限制部分所有權以謀求社會發展：',
+                    keyPoints: [
+                        {
+                            title: '1. 有形物權與公共利益的調和：臺灣「騎樓」設計',
+                            desc: '臺灣氣候炎熱潮濕常有雨，在房屋建築上就有了「騎樓」的設計：各戶人家將一樓房屋內縮，保留空間以供行人行走避雨。騎樓雖屬私人所有，但為公共通行利益受有限制。'
+                        },
+                        {
+                            title: '2. 無形財產的保障與反思：智慧財產權 vs. 開放原始碼 (Open Source)',
+                            desc: '民法與專法保障無形財產「智慧財產權」，肯定智慧成果並鼓勵創作。但有人質疑過度保護反而減緩創作發展，且並非所有人都是為了獲利才發明創造。「開放原始碼運動」便強調資訊自由流通與共享，以對抗商業公司壟斷。'
+                        },
+                        {
+                            title: '3. 公民論壇：《著作權法》第 1 條與「合理使用權」',
+                            desc: '我國《著作權法》第 1 條規定：「為保障著作人著作權益，調和社會公共利益，促進國家文化發展，特制訂本法。」法律同時保障一定的「合理使用權」，兼顧創作者權益與人類智慧成果的傳播發展。'
+                        }
+                    ],
+                    interactiveWidget: 'arcadeClearance',
+                    discussionPrompt: '【課本 P.115 公民論壇：請想想看】\n智慧財產權是保障還是限制？若沒有過去知識的累積，可能無法造成現今的進步；但若只著眼於公共利益，人們恐失去創作、發明的動力。請問「智慧財產權的保障應如何與公共利益有所調和呢？」',
+                    teacherAnswer: '1. 【制度調和】透過《著作權法》設定「合理使用（Fair Use）」範圍（如學校教學引用、評論、非營利學術研究）以及「保護期間限制」（如著作權原則上為著作人終身加 50 年，期滿即進入公共領域）。\n2. 【自願共享機制】推廣「開放原始碼（Open Source）」與「創用 CC（Creative Commons）」授權，讓創作者在保留姓名標示等權利下，自願與社會大眾共享知識成果，兼顧創作誘因與文化傳播！'
+                },
+                quests: [
+                    {
+                        q: 'Q1. 臺灣因為氣候炎熱潮濕多雨，建築上常見一樓內縮的「騎樓」設計。關於騎樓的法律性質，下列敘述何者最符合課本「私有財產與公共利益調和」的觀點？',
+                        options: [
+                            'A. 一樓屋主擁有騎樓所有權，因此可以用鐵捲門把騎樓完全封死當自家車庫，禁止行人走過',
+                            'B. 騎樓空間已完全收歸國有，屋主對騎樓沒有任何所有權',
+                            'C. 騎樓雖屬私人財產，但為調和公共利益，屋主應保留騎樓空間供公眾行人通行，不得任意阻礙',
+                            'D. 騎樓屬於民法上的「動產」，可以隨時拆遷買賣'
+                        ],
+                        correct: 2,
+                        explanation: '正確！課本 P.115 指出，為避免完全保障所有權影響公共利益，臺灣房屋透過一樓內縮「騎樓」設計，限制部分私有所有權以供行人通行。'
+                    },
+                    {
+                        q: 'Q2. 關於「智慧財產權」、「開放原始碼運動」與我國《著作權法》第 1 條的規範精神，下列敘述何者正確？',
+                        options: [
+                            'A. 開放原始碼（Open Source）運動主張所有電腦程式碼都必須由商業公司永久壟斷並禁止檢視',
+                            'B. 《著作權法》第 1 條立法目的包含「保障著作人著作權益，調和社會公共利益，促進國家文化發展」，故法律亦應保障一定的「合理使用權」',
+                            'C. 每一個人的發明與創作都百分之百只為了金錢獲利，完全沒有人願意共享知識',
+                            'D. 智慧財產權是有形的「不動產」，必須去地政事務所登記才生效'
+                        ],
+                        correct: 1,
+                        explanation: '恭喜通關！法律透過保障著作人權益鼓勵創作，同時透過「合理使用權」與開放共享精神，調和社會公共利益並促進國家文化發展！'
+                    }
+                ]
+            }
+        ];
+
+        /********************************************************************
+         * 3. APPLICATION STATE MANAGEMENT
+         ********************************************************************/
+        const state = {
+            mode: 'teacher',              // 'teacher' | 'student'
+            currentZoneIndex: 0,          // 0..5
+            unlockedZones: [false, false, false, false, false, false],
+            questAnswers: {},             // key: `${zIdx}_${qIdx}` -> optionIndex
+            xp: 0,
+            isNight: false,
+            drawerMinimized: false,
+            autoOrbit: false,
+
+            // 6 Interactive 3D Organ States (Directly manipulate 3D meshes!)
+            zone1InspectMode: 'all',      // 'all' | 'movable' | 'immovable'
+            riverManaged: false,          // false = polluted murky river, true = clean blue river + gate closed
+            doubleSaleStage: 0,           // 0 = contract with Yuan, 1 = delivered to Ting, 2 = legal priority
+            courtClaimMode: 0,            // 0 = Return (返還), 1 = Removal (除去), 2 = Prevention (防止)
+            landRegStage: 0,              // 0 = contract only, 1 = paid money, 2 = stamped & registered!
+            arcadeClear: true             // true = clear walkway, false = blocked by clutter
+        };
+
+        /********************************************************************
+         * 4. THREE.JS 3D KNOWLEDGE PLANET & 6 THEMED ARCHITECTURES
+         ********************************************************************/
+        let scene, camera, renderer, controls, raycaster, mouse;
+        let planetGroup, starsMesh, satellitesGroup, cloudsGroup;
+        let buildingGroups = [];
+        let beaconMeshes = [];
+        let celebrationParticles = [];
+        let dirLight, ambientLight, hemiLight;
+        let hoveredZoneIndex = -1;
+
+        // Specific 3D Interactive Organ Meshes
+        let z1MovableGroup, z1ImmovableGroup, z1FoundationWire;
+        let riverWaterMesh, riverGateMesh, riverBubbles = [];
+        let z3LaptopGroup, z3BondLine, z3TingShield, z3ChenChar, z3YuanChar, z3TingChar;
+        let z4ScaleBeam, z4LaserShield;
+        let z5StampGroup, z5OwnerBannerMat, z5VillaRoof;
+        let z6ArcadeObstacles, z6PedestrianMesh;
+
+        // Smooth Camera Fly-To Targets
+        const camTargetPos = new THREE.Vector3(26, 22, 26);
+        const controlsTargetPos = new THREE.Vector3(0, 0, 0);
+        let targetZoom = 1.0;
+        let isCameraTweening = false;
+
+        function initThreePlanet() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+
+            // Orthographic Camera for crisp Isometric Miniature World with true 3D occlusion
+            const aspect = width / height;
+            const d = 19.5;
+            camera = new THREE.OrthographicCamera(-d * aspect, d * aspect, d, -d, -100, 1000);
+            camera.position.set(26, 22, 26);
+            camera.lookAt(0, 0, 0);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // OrbitControls: Full 360 rotation + polar tilt to observe side faces & 3D occlusion
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.maxPolarAngle = Math.PI / 2.05; // Allow low angle side views!
+            controls.minPolarAngle = Math.PI / 8;
+            controls.minZoom = 0.65;
+            controls.maxZoom = 2.8;
+
+            controls.addEventListener('start', () => {
+                isCameraTweening = false;
+                if (state.autoOrbit) toggleAutoOrbit(false);
+            });
+
+            // Lighting with crisp shadows
+            hemiLight = new THREE.HemisphereLight(0xffffff, 0x1e293b, 0.8);
+            scene.add(hemiLight);
+
+            ambientLight = new THREE.AmbientLight(0xf8fafc, 0.35);
+            scene.add(ambientLight);
+
+            dirLight = new THREE.DirectionalLight(0xfffbeb, 1.05);
+            dirLight.position.set(28, 44, 24);
+            dirLight.castShadow = true;
+            dirLight.shadow.mapSize.width = 2048;
+            dirLight.shadow.mapSize.height = 2048;
+            dirLight.shadow.camera.left = -28;
+            dirLight.shadow.camera.right = 28;
+            dirLight.shadow.camera.top = 28;
+            dirLight.shadow.camera.bottom = -28;
+            dirLight.shadow.bias = -0.0005;
+            scene.add(dirLight);
+
+            // Root Planet Container
+            planetGroup = new THREE.Group();
+            scene.add(planetGroup);
+
+            buildSpaceEnvironment();
+            build3DKnowledgePlanetCore();
+            buildRoadsBridgesAndTrees();
+
+            // Build all 6 Textbook 3D Buildings with real 3D geometry & interactive mechanisms
+            buildZone1MarketAndPetHouse();
+            buildZone2RiverAndPigFarm();
+            buildZone3XiaochenStudio();
+            buildZone4Courthouse767();
+            buildZone5LandOfficeAndVilla();
+            buildZone6TaiwanArcadeAndOpenSource();
+
+            // Raycaster for 3D Object picking
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            renderer.domElement.addEventListener('pointermove', onPointerMove);
+            renderer.domElement.addEventListener('pointerdown', onPointerDown);
+            window.addEventListener('resize', onWindowResize);
+
+            createFloatingHTMLPins();
+        }
+
+        function matLowPoly(colorHex, roughness = 0.72, metalness = 0.1, emissiveHex = 0x000000) {
+            return new THREE.MeshStandardMaterial({
+                color: colorHex,
+                roughness,
+                metalness,
+                emissive: emissiveHex,
+                flatShading: true
+            });
+        }
+
+        // Starfield + Orbiting Low-Poly Asteroids + Planetary Rings
+        function buildSpaceEnvironment() {
+            const starGeo = new THREE.BufferGeometry();
+            const count = 450;
+            const positions = new Float32Array(count * 3);
+            for (let i = 0; i < count * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 180;
+                positions[i + 1] = (Math.random() - 0.5) * 140;
+                positions[i + 2] = (Math.random() - 0.5) * 180;
+            }
+            starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            const starMat = new THREE.PointsMaterial({ color: 0xe2e8f0, size: 1.8, sizeAttenuation: false });
+            starsMesh = new THREE.Points(starGeo, starMat);
+            scene.add(starsMesh);
+
+            // Planetary Knowledge Ring around the floating planet
+            const ringGeo = new THREE.TorusGeometry(23.5, 0.12, 8, 64);
+            const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.25 });
+            const ring1 = new THREE.Mesh(ringGeo, ringMat);
+            ring1.rotation.x = Math.PI / 2.15;
+            ring1.rotation.y = 0.12;
+            ring1.position.y = -2.2;
+            planetGroup.add(ring1);
+
+            // Orbiting mini low-poly moons/satellites
+            satellitesGroup = new THREE.Group();
+            const moonColors = [0xf59e0b, 0x38bdf8, 0xa855f7, 0x10b981];
+            for (let i = 0; i < 4; i++) {
+                const angle = (i / 4) * Math.PI * 2;
+                const moon = new THREE.Mesh(
+                    new THREE.DodecahedronGeometry(0.9 + (i % 2) * 0.35, 0),
+                    matLowPoly(moonColors[i], 0.5, 0.2)
+                );
+                moon.position.set(Math.cos(angle) * 23.5, -2.2 + Math.sin(angle) * 1.5, Math.sin(angle) * 23.5);
+                satellitesGroup.add(moon);
+            }
+            planetGroup.add(satellitesGroup);
+
+            // Floating Low-Poly Clouds
+            cloudsGroup = new THREE.Group();
+            const cloudCoords = [
+                { x: -14, y: 11.5, z: -11, s: 1.0 },
+                { x: 13, y: 12.2, z: -7, s: 0.85 },
+                { x: 2, y: 11.0, z: 14, s: 0.95 },
+                { x: -13, y: 10.5, z: 12, s: 0.8 }
+            ];
+            cloudCoords.forEach(cp => {
+                const cloud = new THREE.Group();
+                const cMat = matLowPoly(0xf8fafc, 0.9, 0);
+                const m1 = new THREE.Mesh(new THREE.DodecahedronGeometry(1.15, 0), cMat);
+                const m2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.85, 0), cMat);
+                m2.position.set(1.05, -0.18, 0.15);
+                const m3 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.8, 0), cMat);
+                m3.position.set(-0.95, -0.22, -0.15);
+                cloud.add(m1, m2, m3);
+                cloud.position.set(cp.x, cp.y, cp.z);
+                cloud.scale.setScalar(cp.s);
+                cloudsGroup.add(cloud);
+            });
+            planetGroup.add(cloudsGroup);
+        }
+
+        // Multi-tiered faceted 3D Knowledge Planet Core + Tectonic Grass Plates + Recessed Riverbed
+        function build3DKnowledgePlanetCore() {
+            // Deep faceted planetary lower hemisphere (Polyhedral Rock Core)
+            const coreHull = new THREE.Mesh(
+                new THREE.CylinderGeometry(19.2, 8.5, 9.5, 10),
+                matLowPoly(0x334155, 0.85, 0.15)
+            );
+            coreHull.position.y = -6.0;
+            coreHull.receiveShadow = true;
+            planetGroup.add(coreHull);
+
+            // Glowing magma/knowledge crystal tip at the bottom of the planet
+            const bottomCrystal = new THREE.Mesh(
+                new THREE.ConeGeometry(6.5, 4.5, 8),
+                matLowPoly(0x0284c7, 0.3, 0.5, 0x0369a1)
+            );
+            bottomCrystal.rotation.x = Math.PI;
+            bottomCrystal.position.y = -12.8;
+            planetGroup.add(bottomCrystal);
+
+            // Middle Soil Crust Layer
+            const crust = new THREE.Mesh(
+                new THREE.CylinderGeometry(20.6, 19.2, 1.8, 12),
+                matLowPoly(0x92400e, 0.85, 0.05)
+            );
+            crust.position.y = -1.1;
+            crust.receiveShadow = true;
+            planetGroup.add(crust);
+
+            // Top Grass Continent Plate
+            const continent = new THREE.Mesh(
+                new THREE.BoxGeometry(33.5, 0.85, 27.5),
+                matLowPoly(0x4ade80, 0.8, 0.05)
+            );
+            continent.position.y = -0.2;
+            continent.receiveShadow = true;
+            planetGroup.add(continent);
+
+            // Stepped Terrain Hills on corners for extra 3D elevation depth
+            const hillPositions = [
+                { x: -14.5, z: -11.5, w: 4.5, h: 1.1, d: 3.5 },
+                { x: 14.5, z: -11.5, w: 4.2, h: 1.3, d: 3.8 },
+                { x: 14.8, z: 11.8, w: 3.8, h: 0.9, d: 3.5 }
+            ];
+            hillPositions.forEach(hp => {
+                const hill = new THREE.Mesh(
+                    new THREE.BoxGeometry(hp.w, hp.h, hp.d),
+                    matLowPoly(0x22c55e)
+                );
+                hill.position.set(hp.x, hp.h / 2, hp.z);
+                hill.castShadow = true;
+                hill.receiveShadow = true;
+                planetGroup.add(hill);
+            });
+
+            // Zone 2 Recessed River Channel + Translucent Water Geometry
+            const riverTrench = new THREE.Mesh(
+                new THREE.BoxGeometry(10.6, 0.65, 11.8),
+                matLowPoly(0x1e293b)
+            );
+            riverTrench.position.set(-10.5, 0.02, -8.5);
+            planetGroup.add(riverTrench);
+
+            riverWaterMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(9.8, 0.55, 11.2),
+                new THREE.MeshStandardMaterial({
+                    color: 0x65a30d, // Starts polluted olive-brown until regulated
+                    roughness: 0.2,
+                    metalness: 0.15,
+                    transparent: true,
+                    opacity: 0.88,
+                    flatShading: true
+                })
+            );
+            riverWaterMesh.position.set(-10.5, 0.22, -8.5);
+            planetGroup.add(riverWaterMesh);
+
+            // Animated River Pollution / Clean Water Bubbles
+            for (let i = 0; i < 8; i++) {
+                const bubble = new THREE.Mesh(
+                    new THREE.DodecahedronGeometry(0.24, 0),
+                    matLowPoly(0xa3e635, 0.3, 0.2)
+                );
+                bubble.position.set(-9.5 + (i % 3) * 0.9, 0.55, -12.5 + i * 1.1);
+                planetGroup.add(bubble);
+                riverBubbles.push(bubble);
+            }
+        }
+
+        function buildRoadsBridgesAndTrees() {
+            // Central East-West Highway
+            const roadEW = new THREE.Mesh(
+                new THREE.BoxGeometry(32.5, 0.16, 3.2),
+                matLowPoly(0x334155)
+            );
+            roadEW.position.set(0, 0.24, 0.4);
+            roadEW.receiveShadow = true;
+            planetGroup.add(roadEW);
+
+            // Road Center Dashes
+            for (let x = -14; x <= 14; x += 2.8) {
+                const dash = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.3, 0.19, 0.24),
+                    matLowPoly(0xf8fafc)
+                );
+                dash.position.set(x, 0.26, 0.4);
+                planetGroup.add(dash);
+            }
+
+            // North-South Walkways connecting the 6 zones to the main avenue
+            [-10.5, 0, 10.5].forEach(xPos => {
+                const pathN = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 4.5), matLowPoly(0x475569));
+                pathN.position.set(xPos, 0.23, -3.2);
+                const pathS = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.15, 4.5), matLowPoly(0x475569));
+                pathS.position.set(xPos, 0.23, 4.2);
+                planetGroup.add(pathN, pathS);
+            });
+
+            // 3D Low-Poly Pine & Deciduous Trees around the planet
+            const treeSpots = [
+                [-15.2, 12.2], [-15.2, 4.2], [-5.2, 12.2], [5.2, 12.2], [15.2, 12.2],
+                [-5.2, -12.2], [5.2, -12.2], [15.2, -12.2], [15.5, 3.2], [-15.5, -2.5]
+            ];
+            treeSpots.forEach(([tx, tz], idx) => {
+                const tree = new THREE.Group();
+                const trunk = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.22, 0.34, 1.3, 6),
+                    matLowPoly(0x78350f)
+                );
+                trunk.position.y = 0.65;
+                trunk.castShadow = true;
+                tree.add(trunk);
+
+                const tier1 = new THREE.Mesh(
+                    new THREE.ConeGeometry(1.15, 1.8, 6),
+                    matLowPoly(idx % 2 === 0 ? 0x16a34a : 0x15803d)
+                );
+                tier1.position.y = 1.8;
+                tier1.castShadow = true;
+
+                const tier2 = new THREE.Mesh(
+                    new THREE.ConeGeometry(0.85, 1.5, 6),
+                    matLowPoly(0x22c55e)
+                );
+                tier2.position.y = 2.75;
+                tier2.castShadow = true;
+
+                tree.add(tier1, tier2);
+                tree.position.set(tx, 0.2, tz);
+                planetGroup.add(tree);
+            });
+        }
+
+        function registerZoneBuilding(zoneIndex, group) {
+            group.userData = { zoneIndex };
+            group.traverse(child => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    child.userData = { zoneIndex };
+                }
+            });
+
+            // Floating 3D Crystal Beacon + Orbiting Ring
+            const beaconGroup = new THREE.Group();
+            const crystal = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.68, 0),
+                new THREE.MeshStandardMaterial({
+                    color: 0xf59e0b,
+                    emissive: 0x78350f,
+                    roughness: 0.2,
+                    metalness: 0.6,
+                    flatShading: true
+                })
+            );
+            const halo = new THREE.Mesh(
+                new THREE.TorusGeometry(0.95, 0.06, 6, 20),
+                new THREE.MeshBasicMaterial({ color: 0xfde047 })
+            );
+            halo.rotation.x = Math.PI / 2;
+            beaconGroup.add(crystal, halo);
+            beaconGroup.position.set(0, 6.6, 0);
+            beaconGroup.userData = { zoneIndex, crystal, halo };
+            group.add(beaconGroup);
+
+            beaconMeshes[zoneIndex] = beaconGroup;
+            buildingGroups[zoneIndex] = group;
+            planetGroup.add(group);
+        }
+
+        // ===================================================================
+        // ZONE 1: 【萬物市集與柴犬寵物屋】 (Movable vs. Immovable 3D Architecture)
+        // ===================================================================
+        function buildZone1MarketAndPetHouse() {
+            const g = new THREE.Group();
+            const pos = ZONES_DATA[0].pos;
+            g.position.set(pos.x, 0.2, pos.z);
+
+            // Stone Plaza Base
+            const plaza = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.32, 6.6), matLowPoly(0xfde68a));
+            plaza.position.y = 0.16;
+            g.add(plaza);
+
+            // IMMOVABLE GROUP (不動產：雙層磚造洋房 + 地基結構線)
+            z1ImmovableGroup = new THREE.Group();
+            const houseF1 = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.8, 2.8), matLowPoly(0xfffbeb));
+            houseF1.position.set(-1.6, 1.2, -0.9);
+            const houseF2 = new THREE.Mesh(new THREE.BoxGeometry(2.8, 1.4, 2.4), matLowPoly(0xfef3c7));
+            houseF2.position.set(-1.6, 2.8, -0.9);
+            const roof = new THREE.Mesh(new THREE.ConeGeometry(2.4, 1.5, 4), matLowPoly(0xd97706));
+            roof.position.set(-1.6, 4.25, -0.9);
+            roof.rotation.y = Math.PI / 4;
+
+            // Chimney & Windows (visible on side/back rotation!)
+            const chimney = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.2, 0.45), matLowPoly(0x9a3412));
+            chimney.position.set(-2.4, 4.1, -1.5);
+            const door = new THREE.Mesh(new THREE.BoxGeometry(0.65, 1.1, 0.15), matLowPoly(0x78350f));
+            door.position.set(-1.6, 0.85, 0.52);
+            const sideWin = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.7, 0.9), matLowPoly(0x38bdf8, 0.2, 0.8));
+            sideWin.position.set(-3.22, 1.3, -0.9);
+
+            // Underground Foundation Wireframe (shows "定著於土地")
+            z1FoundationWire = new THREE.Mesh(
+                new THREE.BoxGeometry(3.5, 1.2, 3.1),
+                new THREE.MeshBasicMaterial({ color: 0xf59e0b, wireframe: true, transparent: true, opacity: 0.0 })
+            );
+            z1FoundationWire.position.set(-1.6, 0.5, -0.9);
+
+            z1ImmovableGroup.add(houseF1, houseF2, roof, chimney, door, sideWin, z1FoundationWire);
+            g.add(z1ImmovableGroup);
+
+            // Market Stall (市集攤位)
+            const stallBase = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.0, 1.6), matLowPoly(0xb45309));
+            stallBase.position.set(1.9, 0.8, -1.1);
+            const stallCanopy = new THREE.Mesh(new THREE.BoxGeometry(2.7, 0.4, 2.0), matLowPoly(0xef4444));
+            stallCanopy.position.set(1.9, 2.35, -1.1);
+            const poleL = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.4, 6), matLowPoly(0xe2e8f0));
+            poleL.position.set(0.8, 1.6, -0.3);
+            const poleR = poleL.clone();
+            poleR.position.set(3.0, 1.6, -0.3);
+            g.add(stallBase, stallCanopy, poleL, poleR);
+
+            // MOVABLE GROUP (動產：3D 柴犬寵物 + 3D 跑車 + 3D 智慧型手機模型)
+            z1MovableGroup = new THREE.Group();
+
+            // 1) Cute 3D Shiba Inu Dog Model (寵物屬於動產)
+            const dog = new THREE.Group();
+            const dBody = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.58, 0.52), matLowPoly(0xf59e0b));
+            dBody.position.y = 0.55;
+            const dHead = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.52, 0.52), matLowPoly(0xfbbf24));
+            dHead.position.set(0.48, 0.92, 0);
+            const dSnout = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.22, 0.26), matLowPoly(0xffffff));
+            dSnout.position.set(0.78, 0.84, 0);
+            const earL = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.28, 4), matLowPoly(0xd97706));
+            earL.position.set(0.45, 1.28, 0.16);
+            const earR = earL.clone();
+            earR.position.z = -0.16;
+            const tail = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.35, 0.2), matLowPoly(0xf59e0b));
+            tail.position.set(-0.52, 0.82, 0);
+            tail.rotation.z = 0.4;
+            // 4 legs
+            [[-0.32, 0.18], [0.32, 0.18], [-0.32, -0.18], [0.32, -0.18]].forEach(([lx, lz]) => {
+                const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.38, 0.16), matLowPoly(0xfef3c7));
+                leg.position.set(lx, 0.22, lz);
+                dog.add(leg);
+            });
+            dog.add(dBody, dHead, dSnout, earL, earR, tail);
+            dog.position.set(0.9, 0.3, 1.45);
+            z1MovableGroup.add(dog);
+
+            // 2) 3D Red Sports Car with 4 Wheels (汽車屬於動產)
+            const car = new THREE.Group();
+            const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.52, 1.05), matLowPoly(0xe11d48));
+            chassis.position.y = 0.45;
+            const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.46, 0.9), matLowPoly(0x38bdf8, 0.2, 0.7));
+            cabin.position.set(-0.1, 0.9, 0);
+            [[-0.6, 0.55], [0.6, 0.55], [-0.6, -0.55], [0.6, -0.55]].forEach(([wx, wz]) => {
+                const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.18, 10), matLowPoly(0x0f172a));
+                wheel.rotation.x = Math.PI / 2;
+                wheel.position.set(wx, 0.26, wz);
+                car.add(wheel);
+            });
+            car.add(chassis, cabin);
+            car.position.set(-1.7, 0.3, 1.85);
+            z1MovableGroup.add(car);
+
+            g.add(z1MovableGroup);
+            registerZoneBuilding(0, g);
+        }
+
+        // ===================================================================
+        // ZONE 2: 【綠川養豬場與環保水門】 (Ownership & Environmental Externality)
+        // ===================================================================
+        function buildZone2RiverAndPigFarm() {
+            const g = new THREE.Group();
+            const pos = ZONES_DATA[1].pos;
+            g.position.set(pos.x, 0.2, pos.z);
+
+            // Pig Farm Barn on West Bank
+            const barn = new THREE.Mesh(new THREE.BoxGeometry(3.4, 2.2, 2.8), matLowPoly(0xfca5a5));
+            barn.position.set(-2.6, 1.3, -1.8);
+            g.add(barn);
+
+            const barnRoof = new THREE.Mesh(new THREE.CylinderGeometry(2.1, 2.1, 3.6, 3), matLowPoly(0x991b1b));
+            barnRoof.rotation.z = Math.PI / 2;
+            barnRoof.rotation.y = Math.PI / 2;
+            barnRoof.position.set(-2.6, 2.95, -1.8);
+            g.add(barnRoof);
+
+            // Feed Silo Tower next to Barn (Great for 3D side silhouette & occlusion)
+            const silo = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 3.6, 10), matLowPoly(0xe2e8f0, 0.4, 0.4));
+            silo.position.set(-4.3, 1.9, -0.2);
+            const siloDome = new THREE.Mesh(new THREE.SphereGeometry(0.75, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2), matLowPoly(0xef4444));
+            siloDome.position.set(-4.3, 3.7, -0.2);
+            g.add(silo, siloDome);
+
+            // Cute Low-Poly Pigs with Snouts
+            for (let i = 0; i < 2; i++) {
+                const pig = new THREE.Group();
+                const pBody = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.62, 0.58), matLowPoly(0xf472b6));
+                pBody.position.y = 0.5;
+                const pNose = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.25, 0.32), matLowPoly(0xfb7185));
+                pNose.position.set(0.48, 0.52, 0);
+                pig.add(pBody, pNose);
+                pig.position.set(-2.9 + i * 1.35, 0.2, 0.8);
+                g.add(pig);
+            }
+
+            // Wastewater Discharge Pipe into River
+            const pipe = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 2.4, 8), matLowPoly(0x64748b, 0.4, 0.6));
+            pipe.rotation.z = Math.PI / 2;
+            pipe.position.set(-0.5, 0.55, -1.6);
+            g.add(pipe);
+
+            // State Environmental Water Gate Arch (跨越河道的政府管理水門)
+            const pillarL = new THREE.Mesh(new THREE.BoxGeometry(0.85, 3.8, 0.85), matLowPoly(0x059669));
+            pillarL.position.set(1.6, 1.9, -2.2);
+            const pillarR = pillarL.clone();
+            pillarR.position.set(1.6, 1.9, 2.2);
+            const archTop = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.95, 5.4), matLowPoly(0x10b981));
+            archTop.position.set(1.6, 3.9, 0);
+
+            // Movable Sluice Gate Blade
+            riverGateMesh = new THREE.Mesh(
+                new THREE.BoxGeometry(0.35, 2.6, 3.5),
+                matLowPoly(0x38bdf8, 0.2, 0.7)
+            );
+            riverGateMesh.position.set(1.6, 2.6, 0); // Raised initially
+            g.add(pillarL, pillarR, archTop, riverGateMesh);
+
+            registerZoneBuilding(1, g);
+        }
+
+        // ===================================================================
+        // ZONE 3: 【小辰的 3C 創客工坊】 (4 Characteristics & Double Sale Theater)
+        // ===================================================================
+        function buildZone3XiaochenStudio() {
+            const g = new THREE.Group();
+            const pos = ZONES_DATA[2].pos;
+            g.position.set(pos.x, 0.2, pos.z);
+
+            const base = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.32, 6.6), matLowPoly(0xbae6fd));
+            base.position.y = 0.16;
+            g.add(base);
+
+            // Stepped Modern Tech Building
+            const mainHall = new THREE.Mesh(new THREE.BoxGeometry(4.6, 2.8, 3.4), matLowPoly(0x0284c7));
+            mainHall.position.set(0, 1.7, -0.9);
+            const sideTower = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.8, 2.6), matLowPoly(0x0369a1));
+            sideTower.position.set(-2.1, 2.2, -0.7);
+            const glassWall = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.8, 0.18), matLowPoly(0xe0f2fe, 0.1, 0.85));
+            glassWall.position.set(0.5, 1.7, 0.82);
+            g.add(mainHall, sideTower, glassWall);
+
+            // Giant Iconic 3D Laptop on Roof (小辰的電腦)
+            z3LaptopGroup = new THREE.Group();
+            const kb = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.18, 1.55), matLowPoly(0xe2e8f0, 0.3, 0.6));
+            const lid = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.45, 0.14), matLowPoly(0x94a3b8, 0.3, 0.6));
+            lid.position.set(0, 0.72, -0.72);
+            lid.rotation.x = -0.18;
+            const lcd = new THREE.Mesh(new THREE.BoxGeometry(2.05, 1.2, 0.08), matLowPoly(0x38bdf8, 0.2, 0.2, 0x0284c7));
+            lcd.position.set(0, 0.72, -0.66);
+            lcd.rotation.x = -0.18;
+            z3LaptopGroup.add(kb, lid, lcd);
+            z3LaptopGroup.position.set(0.3, 3.3, -0.8);
+            g.add(z3LaptopGroup);
+
+            // 3 Low-Poly Characters on Foreground Plaza: 小辰 (Center), 元元 (Left), 阿庭 (Right)
+            function makeLowPolyPerson(shirtHex) {
+                const p = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.36, 0.95, 7), matLowPoly(shirtHex));
+                body.position.y = 0.65;
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 8, 8), matLowPoly(0xfde68a));
+                head.position.y = 1.38;
+                p.add(body, head);
+                return p;
+            }
+
+            z3ChenChar = makeLowPolyPerson(0x10b981); // 小辰 (綠衣)
+            z3ChenChar.position.set(0, 0.3, 1.6);
+
+            z3YuanChar = makeLowPolyPerson(0xf59e0b); // 元元 (橘衣，出價 $5000)
+            z3YuanChar.position.set(-2.1, 0.3, 2.1);
+
+            z3TingChar = makeLowPolyPerson(0xfacc15); // 阿庭 (黃衣，出價 $6000 取得交付)
+            z3TingChar.position.set(2.1, 0.3, 2.1);
+
+            // Blue Contract Beam between Chen & Yuan (債權相對契約線)
+            z3BondLine = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.08, 0.08, 2.15, 6),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+            );
+            z3BondLine.rotation.z = Math.PI / 2;
+            z3BondLine.rotation.y = 0.24;
+            z3BondLine.position.set(-1.05, 1.0, 1.85);
+
+            // Golden Ownership Shield around Ting (阿庭取得所有權物權護盾)
+            z3TingShield = new THREE.Mesh(
+                new THREE.OctahedronGeometry(0.85, 1),
+                new THREE.MeshBasicMaterial({ color: 0xfacc15, wireframe: true, transparent: true, opacity: 0.0 })
+            );
+            z3TingShield.position.set(2.1, 1.1, 2.1);
+
+            g.add(z3ChenChar, z3YuanChar, z3TingChar, z3BondLine, z3TingShield);
+            registerZoneBuilding(2, g);
+        }
+
+        // ===================================================================
+        // ZONE 4: 【民法 767 號正義法院】 (Protection of Ownership: Art. 767)
+        // ===================================================================
+        function buildZone4Courthouse767() {
+            const g = new THREE.Group();
+            const pos = ZONES_DATA[3].pos;
+            g.position.set(pos.x, 0.2, pos.z);
+
+            // Stepped Marble Podium
+            const step1 = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.4, 6.4), matLowPoly(0xe2e8f0));
+            step1.position.y = 0.2;
+            const step2 = new THREE.Mesh(new THREE.BoxGeometry(6.4, 0.4, 5.6), matLowPoly(0xf8fafc));
+            step2.position.y = 0.6;
+            g.add(step1, step2);
+
+            // Classical Chamber
+            const chamber = new THREE.Mesh(new THREE.BoxGeometry(5.0, 2.7, 3.8), matLowPoly(0xcbd5e1));
+            chamber.position.set(0, 2.15, -0.3);
+            g.add(chamber);
+
+            // 4 Front Columns + 4 Back Columns for full 360° 3D fidelity
+            for (let x = -1.95; x <= 1.95; x += 1.3) {
+                const colFront = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.28, 2.7, 8), matLowPoly(0xffffff));
+                colFront.position.set(x, 2.15, 1.95);
+                const colBack = colFront.clone();
+                colBack.position.set(x, 2.15, -2.45);
+                g.add(colFront, colBack);
+            }
+
+            // Triangular Pediment Roof
+            const pediment = new THREE.Mesh(new THREE.CylinderGeometry(3.3, 3.3, 5.6, 3), matLowPoly(0x7e22ce));
+            pediment.rotation.z = Math.PI / 2;
+            pediment.position.set(0, 4.2, -0.2);
+            g.add(pediment);
+
+            // 3D Golden Scales of Justice on Roof
+            const scalePillar = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 1.3, 6), matLowPoly(0xfacc15, 0.3, 0.7));
+            scalePillar.position.set(0, 5.2, 0.4);
+            g.add(scalePillar);
+
+            z4ScaleBeam = new THREE.Group();
+            const bar = new THREE.Mesh(new THREE.BoxGeometry(2.1, 0.12, 0.12), matLowPoly(0xfacc15, 0.3, 0.8));
+            const panL = new THREE.Mesh(new THREE.ConeGeometry(0.38, 0.25, 6), matLowPoly(0xfde047, 0.3, 0.7));
+            panL.rotation.x = Math.PI;
+            panL.position.set(-0.95, -0.45, 0);
+            const panR = panL.clone();
+            panR.position.set(0.95, -0.45, 0);
+            z4ScaleBeam.add(bar, panL, panR);
+            z4ScaleBeam.position.set(0, 5.75, 0.4);
+            g.add(z4ScaleBeam);
+
+            // 3D Legal Protection Dome Shield (Demonstrates Art. 767 Claims)
+            z4LaserShield = new THREE.Mesh(
+                new THREE.CylinderGeometry(3.4, 3.6, 4.2, 12, 1, true),
+                new THREE.MeshBasicMaterial({ color: 0xa855f7, wireframe: true, transparent: true, opacity: 0.35 })
+            );
+            z4LaserShield.position.set(0, 2.5, 0);
+            g.add(z4LaserShield);
+
+            registerZoneBuilding(3, g);
+        }
+
+        // ===================================================================
+        // ZONE 5: 【地政事務所與陳太太別墅】 (Registration of Immovable Property)
+        // ===================================================================
+        function buildZone5LandOfficeAndVilla() {
+            const g = new THREE.Group();
+            const pos = ZONES_DATA[4].pos;
+            g.position.set(pos.x, 0.2, pos.z);
+
+            const base = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.32, 6.6), matLowPoly(0xfecdd3));
+            base.position.y = 0.16;
+            g.add(base);
+
+            // Official Land Registration Office (地政事務所大樓)
+            const office = new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.6, 3.0), matLowPoly(0xe11d48));
+            office.position.set(-1.5, 2.1, -0.6);
+            g.add(office);
+
+            // Animated Giant 3D Official Seal Stamp on Roof (地政登記官印)
+            z5StampGroup = new THREE.Group();
+            const sBase = new THREE.Mesh(new THREE.BoxGeometry(1.65, 0.55, 1.65), matLowPoly(0xfef08a));
+            const sHandle = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.48, 1.1, 8), matLowPoly(0x991b1b));
+            sHandle.position.y = 0.75;
+            const sKnob = new THREE.Mesh(new THREE.SphereGeometry(0.42, 8, 8), matLowPoly(0x991b1b));
+            sKnob.position.y = 1.35;
+            z5StampGroup.add(sBase, sHandle, sKnob);
+            z5StampGroup.position.set(-1.5, 4.3, -0.6);
+            g.add(z5StampGroup);
+
+            // Mrs. Chen's Garden Villa next door (陳太太賣給林先生的不動產房屋)
+            const villa = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2.0, 2.4), matLowPoly(0xfef3c7));
+            villa.position.set(1.85, 1.3, 0.5);
+            z5VillaRoof = new THREE.Mesh(new THREE.ConeGeometry(2.0, 1.35, 4), matLowPoly(0xf97316));
+            z5VillaRoof.rotation.y = Math.PI / 4;
+            z5VillaRoof.position.set(1.85, 2.95, 0.5);
+
+            // Ownership Indicator Pillar next to Villa
+            z5OwnerBannerMat = matLowPoly(0xf43f5e, 0.3, 0.4, 0x881337);
+            const ownerOrb = new THREE.Mesh(new THREE.SphereGeometry(0.42, 10, 10), z5OwnerBannerMat);
+            ownerOrb.position.set(1.85, 4.1, 0.5);
+
+            g.add(villa, z5VillaRoof, ownerOrb);
+            registerZoneBuilding(4, g);
+        }
+
+        // ===================================================================
+        // ZONE 6: 【台灣騎樓與開源創客館】 (Public Interest: Arcade & Open Source)
+        // ===================================================================
+        function buildZone6TaiwanArcadeAndOpenSource() {
+            const g = new THREE.Group();
+            const pos = ZONES_DATA[5].pos;
+            g.position.set(pos.x, 0.2, pos.z);
+
+            const base = new THREE.Mesh(new THREE.BoxGeometry(7.4, 0.32, 6.6), matLowPoly(0xfef08a));
+            base.position.y = 0.16;
+            g.add(base);
+
+            // 1st Floor Recessed Shop Interior (一樓房屋內縮，形成騎樓走廊空間！)
+            const recessedF1 = new THREE.Mesh(new THREE.BoxGeometry(5.4, 1.95, 2.3), matLowPoly(0xfde047));
+            recessedF1.position.set(0, 1.28, -1.15);
+            g.add(recessedF1);
+
+            // 2nd & 3rd Floors Cantilevered over the Arcade Walkway
+            const upperFloors = new THREE.Mesh(new THREE.BoxGeometry(5.4, 2.4, 4.6), matLowPoly(0xeab308));
+            upperFloors.position.set(0, 3.45, 0.0);
+            g.add(upperFloors);
+
+            // 4 Arcade Columns along the front sidewalk (騎樓立柱：旋轉視角可清楚穿透觀看走廊！)
+            for (let x = -2.25; x <= 2.25; x += 1.5) {
+                const col = new THREE.Mesh(new THREE.BoxGeometry(0.42, 1.95, 0.42), matLowPoly(0xb45309));
+                col.position.set(x, 1.28, 1.9);
+                g.add(col);
+            }
+
+            // Open Source 3D Torus Knot Emblem on Roof (開放原始碼共享標誌)
+            const openRing = new THREE.Mesh(
+                new THREE.TorusGeometry(0.9, 0.25, 8, 18),
+                matLowPoly(0x38bdf8, 0.2, 0.6, 0x0284c7)
+            );
+            openRing.position.set(0, 5.4, 0);
+            g.add(openRing);
+
+            // Animated Pedestrian walking smoothly through the Arcade corridor
+            z6PedestrianMesh = new THREE.Group();
+            const pBody = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.3, 0.85, 7), matLowPoly(0x10b981));
+            pBody.position.y = 0.6;
+            const pHead = new THREE.Mesh(new THREE.SphereGeometry(0.24, 8, 8), matLowPoly(0xfde68a));
+            pHead.position.y = 1.22;
+            z6PedestrianMesh.add(pBody, pHead);
+            z6PedestrianMesh.position.set(0, 0.3, 0.95);
+            g.add(z6PedestrianMesh);
+
+            // Toggleable Illegal Clutter Obstacles blocking the Arcade
+            z6ArcadeObstacles = new THREE.Group();
+            const barricade1 = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 0.9), matLowPoly(0xef4444));
+            barricade1.position.set(-1.1, 0.75, 0.95);
+            const barricade2 = new THREE.Mesh(new THREE.ConeGeometry(0.45, 1.0, 6), matLowPoly(0xf97316));
+            barricade2.position.set(1.1, 0.8, 0.95);
+            z6ArcadeObstacles.add(barricade1, barricade2);
+            z6ArcadeObstacles.visible = false; // Default clear
+            g.add(z6ArcadeObstacles);
+
+            registerZoneBuilding(5, g);
+        }
+
+        // Celebration Particle Burst when a Zone is Unlocked
+        function spawnUnlockParticles(worldPos) {
+            for (let i = 0; i < 24; i++) {
+                const p = new THREE.Mesh(
+                    new THREE.OctahedronGeometry(0.22, 0),
+                    new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? 0x10b981 : 0xfacc15 })
+                );
+                p.position.copy(worldPos);
+                p.position.y += 5.5;
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 0.28,
+                    Math.random() * 0.25 + 0.08,
+                    (Math.random() - 0.5) * 0.28
+                );
+                planetGroup.add(p);
+                celebrationParticles.push({ mesh: p, vel, life: 1.0 });
+            }
+        }
+
+        /********************************************************************
+         * 5. FLOATING 3D HTML PINS & CAMERA FLY-TO SYSTEM
+         ********************************************************************/
+        function createFloatingHTMLPins() {
+            const container = document.getElementById('labels-container');
+            container.innerHTML = '';
+
+            ZONES_DATA.forEach((z, idx) => {
+                const pin = document.createElement('div');
+                pin.id = `building-pin-${idx}`;
+                pin.className = 'building-label select-none';
+                pin.onclick = (e) => {
+                    e.stopPropagation();
+                    focusZone(idx);
+                };
+                container.appendChild(pin);
+            });
+            refreshPinUI();
+        }
+
+        function refreshPinUI() {
+            ZONES_DATA.forEach((z, idx) => {
+                const pin = document.getElementById(`building-pin-${idx}`);
+                if (!pin) return;
+
+                const isCurrent = state.currentZoneIndex === idx;
+                const isUnlocked = state.unlockedZones[idx];
+
+                const badgeHTML = isUnlocked
+                    ? `<span class="w-5 h-5 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center text-xs font-black">✓</span>`
+                    : `<span class="w-5 h-5 rounded-full ${isCurrent ? 'bg-amber-400 text-slate-950' : 'bg-slate-800 text-amber-300 border border-amber-400/40'} flex items-center justify-center text-[11px] font-black">${z.step}</span>`;
+
+                pin.innerHTML = `
+                    <div class="glass-pill px-2.5 py-1.5 rounded-2xl flex items-center gap-2 shadow-xl transition-all ${
+                        isCurrent ? 'ring-2 ring-amber-400 bg-slate-900/95 active-pin' : 'opacity-90 hover:opacity-100'
+                    }">
+                        ${badgeHTML}
+                        <div class="text-left pr-1">
+                            <div class="text-[11px] font-extrabold text-white leading-tight whitespace-nowrap">${z.name}</div>
+                            <div class="text-[9px] ${isUnlocked ? 'text-emerald-300' : 'text-amber-300/90'} font-semibold leading-tight">${z.page} · ${z.shortTitle}</div>
+                        </div>
+                    </div>
+                    <div class="w-2.5 h-2.5 bg-slate-900 border-r border-b border-amber-400/50 rotate-45 mx-auto -mt-1"></div>
+                `;
+
+                // Sync 3D Beacon Crystal Color
+                if (beaconMeshes[idx]) {
+                    const { crystal, halo } = beaconMeshes[idx].userData;
+                    if (isUnlocked) {
+                        crystal.material.color.setHex(0x10b981);
+                        crystal.material.emissive.setHex(0x065f46);
+                        halo.material.color.setHex(0x34d399);
+                    } else if (isCurrent) {
+                        crystal.material.color.setHex(0xfacc15);
+                        crystal.material.emissive.setHex(0x854d0e);
+                        halo.material.color.setHex(0xfef08a);
+                    } else {
+                        crystal.material.color.setHex(0x94a3b8);
+                        crystal.material.emissive.setHex(0x1e293b);
+                        halo.material.color.setHex(0x64748b);
+                    }
+                }
+            });
+        }
+
+        function updatePinScreenPositions() {
+            const width = window.innerWidth;
+            const height = window.innerHeight;
+
+            ZONES_DATA.forEach((z, idx) => {
+                const pin = document.getElementById(`building-pin-${idx}`);
+                if (!pin) return;
+
+                const worldPos = new THREE.Vector3(z.pos.x, 7.8, z.pos.z);
+                worldPos.project(camera);
+
+                const sx = (worldPos.x * 0.5 + 0.5) * width;
+                const sy = (-(worldPos.y * 0.5) + 0.5) * height;
+
+                pin.style.left = `${sx}px`;
+                pin.style.top = `${sy}px`;
+            });
+        }
+
+        function focusZone(index) {
+            playTone('fly');
+            state.currentZoneIndex = index;
+            const z = ZONES_DATA[index];
+
+            controlsTargetPos.set(z.pos.x, 1.8, z.pos.z);
+            camTargetPos.set(z.camOffset.x, z.camOffset.y, z.camOffset.z);
+            targetZoom = 1.42;
+            isCameraTweening = true;
+
+            if (state.drawerMinimized) {
+                toggleDrawerMinimize(false);
+            }
+            renderUI();
+        }
+
+        function resetCameraOverview() {
+            playTone('fly');
+            controlsTargetPos.set(0, 0, 0);
+            camTargetPos.set(26, 22, 26);
+            targetZoom = 1.0;
+            isCameraTweening = true;
+        }
+
+        // Low-angle 3D perspective to clearly highlight side walls, roof heights & spatial occlusion
+        function setLowAngleSideView() {
+            playTone('fly');
+            const z = ZONES_DATA[state.currentZoneIndex];
+            controlsTargetPos.set(z.pos.x, 1.6, z.pos.z);
+            camTargetPos.set(z.pos.x + 18, 6.2, z.pos.z + 16);
+            targetZoom = 1.5;
+            isCameraTweening = true;
+        }
+
+        function toggleAutoOrbit(forceVal) {
+            state.autoOrbit = forceVal !== undefined ? forceVal : !state.autoOrbit;
+            controls.autoRotate = state.autoOrbit;
+            controls.autoRotateSpeed = 1.6;
+            const btn = document.getElementById('btn-auto-orbit');
+            if (state.autoOrbit) {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-emerald-500/25 text-[11px] font-bold text-emerald-300 border border-emerald-400/40 transition flex items-center gap-1';
+                btn.innerHTML = `<i data-lucide="rotate-3d" class="w-3 h-3"></i> <span>環繞展示：開</span>`;
+            } else {
+                btn.className = 'px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-[11px] font-bold text-slate-300 border border-slate-600/50 transition flex items-center gap-1';
+                btn.innerHTML = `<i data-lucide="rotate-3d" class="w-3 h-3"></i> <span>環繞展示：關</span>`;
+            }
+            lucide.createIcons();
+        }
+
+        function stepTour(delta) {
+            const nextIdx = (state.currentZoneIndex + delta + ZONES_DATA.length) % ZONES_DATA.length;
+            focusZone(nextIdx);
+        }
+
+        /********************************************************************
+         * 6. RAYCASTER CLICK & HOVER INTERACTION
+         ********************************************************************/
+        let pointerDownPos = { x: 0, y: 0 };
+
+        function onPointerMove(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(buildingGroups, true);
+            const tooltip = document.getElementById('hover-tooltip');
+
+            if (intersects.length > 0) {
+                const hitZone = intersects[0].object.userData.zoneIndex;
+                if (hitZone !== undefined) {
+                    renderer.domElement.style.cursor = 'pointer';
+                    hoveredZoneIndex = hitZone;
+
+                    const z = ZONES_DATA[hitZone];
+                    document.getElementById('tooltip-step').textContent = `第 ${z.step} 站 · ${z.page}`;
+                    document.getElementById('tooltip-title').textContent = z.name;
+                    document.getElementById('tooltip-sub').textContent = z.subtitle;
+                    tooltip.style.left = `${Math.min(event.clientX + 16, window.innerWidth - 260)}px`;
+                    tooltip.style.top = `${Math.min(event.clientY + 16, window.innerHeight - 80)}px`;
+                    tooltip.classList.remove('hidden');
+                    return;
+                }
+            }
+
+            renderer.domElement.style.cursor = 'grab';
+            hoveredZoneIndex = -1;
+            tooltip.classList.add('hidden');
+        }
+
+        function onPointerDown(event) {
+            pointerDownPos = { x: event.clientX, y: event.clientY };
+            const onPointerUp = (upEvent) => {
+                window.removeEventListener('pointerup', onPointerUp);
+                const dist = Math.hypot(upEvent.clientX - pointerDownPos.x, upEvent.clientY - pointerDownPos.y);
+                if (dist < 6 && hoveredZoneIndex !== -1) {
+                    focusZone(hoveredZoneIndex);
+                }
+            };
+            window.addEventListener('pointerup', onPointerUp);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            const aspect = width / height;
+            const d = 19.5;
+
+            camera.left = -d * aspect;
+            camera.right = d * aspect;
+            camera.top = d;
+            camera.bottom = -d;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        /********************************************************************
+         * 7. UI RENDERING & 3D INTERACTIVE MECHANISM CONTROLLERS
+         ********************************************************************/
+        function switchMode(newMode) {
+            playTone('switch');
+            state.mode = newMode;
+            const btnTeacher = document.getElementById('btn-mode-teacher');
+            const btnStudent = document.getElementById('btn-mode-student');
+
+            if (newMode === 'teacher') {
+                btnTeacher.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all bg-amber-500 text-slate-950 shadow-lg shadow-amber-500/25';
+                btnStudent.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all text-slate-300 hover:text-white hover:bg-slate-800/60';
+            } else {
+                btnStudent.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all bg-indigo-500 text-white shadow-lg shadow-indigo-500/30';
+                btnTeacher.className = 'px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-2 transition-all text-slate-300 hover:text-white hover:bg-slate-800/60';
+            }
+            renderUI();
+        }
+
+        function toggleCurrentZoneMode() {
+            switchMode(state.mode === 'teacher' ? 'student' : 'teacher');
+        }
+
+        function toggleDrawerMinimize(minimize) {
+            state.drawerMinimized = minimize;
+            const drawer = document.getElementById('main-drawer');
+            const reopenBtn = document.getElementById('btn-reopen-drawer');
+            if (minimize) {
+                drawer.style.transform = 'translateX(calc(100% + 1.5rem))';
+                reopenBtn.classList.remove('hidden');
+                reopenBtn.classList.add('flex');
+            } else {
+                drawer.style.transform = 'translateX(0)';
+                reopenBtn.classList.add('hidden');
+                reopenBtn.classList.remove('flex');
+            }
+        }
+
+        function toggleLightingMode() {
+            playTone('switch');
+            state.isNight = !state.isNight;
+            const btn = document.getElementById('btn-lighting');
+            if (state.isNight) {
+                dirLight.intensity = 0.4;
+                dirLight.color.setHex(0x93c5fd);
+                hemiLight.intensity = 0.4;
+                btn.innerHTML = `<i data-lucide="moon" class="w-4 h-4 text-indigo-300"></i>`;
+            } else {
+                dirLight.intensity = 1.05;
+                dirLight.color.setHex(0xfffbeb);
+                hemiLight.intensity = 0.8;
+                btn.innerHTML = `<i data-lucide="sun" class="w-4 h-4 text-amber-300"></i>`;
+            }
+            lucide.createIcons();
+        }
+
+        function renderUI() {
+            const z = ZONES_DATA[state.currentZoneIndex];
+            const isUnlocked = state.unlockedZones[state.currentZoneIndex];
+            const unlockedCount = state.unlockedZones.filter(Boolean).length;
+
+            // Update Top Nav
+            document.getElementById('nav-quest-counter').textContent = `${unlockedCount}/6`;
+            document.getElementById('xp-display').textContent = `${state.xp} XP`;
+            document.getElementById('top-progress-bar').style.width = `${(unlockedCount / 6) * 100}%`;
+
+            // Update Drawer Header
+            document.getElementById('zone-step-badge').textContent = `第 ${z.step} 站 / 共 6 站`;
+            document.getElementById('zone-page-badge').textContent = z.page;
+            const lockBadge = document.getElementById('zone-lock-badge');
+            if (isUnlocked) {
+                lockBadge.textContent = '✓ 已解鎖信標';
+                lockBadge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-400/30';
+            } else {
+                lockBadge.textContent = '🔒 任務待解鎖';
+                lockBadge.className = 'text-[11px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 text-amber-300 border border-amber-400/30';
+            }
+            document.getElementById('zone-title').textContent = z.name;
+            document.getElementById('zone-icon-box').innerHTML = `<i data-lucide="${z.icon}" class="w-6 h-6"></i>`;
+
+            // Sub-Tab Indicator
+            const modePill = document.getElementById('mode-indicator-pill');
+            const quickBtn = document.getElementById('quick-switch-btn');
+            if (state.mode === 'teacher') {
+                modePill.innerHTML = `<i data-lucide="presentation" class="w-3.5 h-3.5 text-amber-400"></i><span class="text-amber-300">教師教學講義與 3D 機關</span>`;
+                quickBtn.innerHTML = `<i data-lucide="sword" class="w-3 h-3"></i><span>進入本站解鎖任務</span>`;
+            } else {
+                modePill.innerHTML = `<i data-lucide="sword" class="w-3.5 h-3.5 text-indigo-400"></i><span class="text-indigo-300">學生現場調查與解鎖任務</span>`;
+                quickBtn.innerHTML = `<i data-lucide="book-open" class="w-3 h-3"></i><span>返回教師教學講義</span>`;
+            }
+
+            // Render Drawer Content
+            const body = document.getElementById('drawer-body');
+            if (state.mode === 'teacher') {
+                body.innerHTML = renderTeacherContent(z);
+            } else {
+                body.innerHTML = renderStudentContent(z, state.currentZoneIndex);
+            }
+
+            renderDockAndDots();
+            refreshPinUI();
+            lucide.createIcons();
+        }
+
+        function renderTeacherContent(z) {
+            const widgetHTML = render3DInteractiveMechanism(z.teacher.interactiveWidget);
+
+            const pointsHTML = z.teacher.keyPoints.map((kp) => `
+                <div class="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-700/80 hover:border-amber-400/40 transition">
+                    <div class="font-bold text-amber-300 text-xs sm:text-sm">${kp.title}</div>
+                    <p class="text-slate-300 text-xs leading-relaxed mt-1.5 whitespace-pre-line">${kp.desc}</p>
+                </div>
+            `).join('');
+
+            return `
+                <!-- 3D Planet Linked Interactive Mechanism (Always on top for immediate 3D interaction) -->
+                ${widgetHTML}
+
+                <!-- Textbook Summary Card -->
+                <div class="p-3.5 rounded-2xl bg-gradient-to-br from-amber-500/15 to-orange-500/10 border border-amber-400/30">
+                    <div class="text-[11px] font-bold text-amber-300 flex items-center gap-1.5">
+                        <i data-lucide="scale" class="w-3.5 h-3.5"></i>
+                        <span>${z.legalBadge}</span>
+                    </div>
+                    <div class="text-xs font-bold text-white mt-1">${z.subtitle}</div>
+                    <p class="text-xs text-slate-300 leading-relaxed mt-1.5">${z.teacher.summary}</p>
+                </div>
+
+                <!-- Textbook Core Points -->
+                <div class="space-y-2.5">
+                    <div class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                        <i data-lucide="book-open-check" class="w-3.5 h-3.5 text-amber-400"></i>
+                        <span>教材核心重點精析（${z.page}）</span>
+                    </div>
+                    ${pointsHTML}
+                </div>
+
+                <!-- Classroom Discussion & Collapsible Teacher Guide -->
+                <div class="p-4 rounded-2xl bg-indigo-950/55 border border-indigo-400/35 space-y-2.5">
+                    <div class="flex items-center gap-2 text-indigo-300 font-bold text-xs">
+                        <i data-lucide="message-circle-question" class="w-4 h-4"></i>
+                        <span>課堂思辨與公民論壇提問</span>
+                    </div>
+                    <p class="text-xs text-slate-200 leading-relaxed whitespace-pre-line">${z.teacher.discussionPrompt}</p>
+                    <details class="group pt-1">
+                        <summary class="cursor-pointer list-none inline-flex items-center gap-1.5 text-xs font-bold text-amber-300 hover:text-amber-200 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-amber-400/30">
+                            <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i>
+                            <span>點此展開教師教學引導解答</span>
+                        </summary>
+                        <div class="mt-2.5 p-3 rounded-xl bg-slate-900/95 text-xs text-emerald-300 leading-relaxed border border-emerald-500/30 whitespace-pre-line">${z.teacher.teacherAnswer}</div>
+                    </details>
+                </div>
+            `;
+        }
+
+        // 6 Custom 3D-Linked Interactive Mechanisms
+        function render3DInteractiveMechanism(widgetType) {
+            if (widgetType === 'propertyInspector') {
+                return `
+                    <div class="p-3.5 rounded-2xl bg-amber-950/50 border border-amber-400/40 space-y-2.5">
+                        <div class="text-xs font-bold text-amber-300 flex items-center gap-1.5">
+                            <i data-lucide="box" class="w-4 h-4"></i>
+                            <span>3D 星球連動機關：動產 vs. 不動產拆解檢視器</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5">
+                            <button onclick="setZone1Inspect('all')" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.zone1InspectMode === 'all' ? 'bg-amber-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">全部顯示</button>
+                            <button onclick="setZone1Inspect('immovable')" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.zone1InspectMode === 'immovable' ? 'bg-amber-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">🏠 不動產定著</button>
+                            <button onclick="setZone1Inspect('movable')" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.zone1InspectMode === 'movable' ? 'bg-amber-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">🐕 動產(車/犬)</button>
+                        </div>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">
+                            ${state.zone1InspectMode === 'immovable'
+                                ? '🔍 已在 3D 場景顯示【不動產地基結構線】：土地與緊密附著於土地之房屋（定著物）屬於不動產！'
+                                : state.zone1InspectMode === 'movable'
+                                ? '🔍 已將 3D 場景中的【跑車與柴犬寵物】升起動態展示：不動產以外之物（含法律觀點下的寵物）皆屬於動產！'
+                                : '👆 點擊上方按鈕，直接控制左側 3D 市集中的房屋地基、汽車與柴犬模型！'}
+                        </p>
+                    </div>
+                `;
+            }
+
+            if (widgetType === 'riverToggle') {
+                return `
+                    <div class="p-3.5 rounded-2xl bg-emerald-950/50 border border-emerald-400/40 space-y-2.5">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold text-emerald-300 flex items-center gap-1.5">
+                                <i data-lucide="sliders" class="w-4 h-4"></i>
+                                <span>3D 星球連動機關：養豬場廢水與水門管制</span>
+                            </span>
+                            <span class="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-900 ${state.riverManaged ? 'text-sky-300' : 'text-amber-300'}">${state.riverManaged ? '已依法納管' : '無主物排汙中'}</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setRiverRegulation(false)" class="p-2 rounded-xl text-xs font-bold border transition ${!state.riverManaged ? 'bg-amber-600/35 border-amber-400 text-amber-200' : 'bg-slate-900 border-slate-700 text-slate-400'}">
+                                🤢 無主物放任排廢水<br><span class="text-[10px] font-normal">（3D 河水混濁綠褐）</span>
+                            </button>
+                            <button onclick="setRiverRegulation(true)" class="p-2 rounded-xl text-xs font-bold border transition ${state.riverManaged ? 'bg-sky-500/35 border-sky-400 text-sky-200' : 'bg-slate-900 border-slate-700 text-slate-400'}">
+                                💧 社會契約政府納管<br><span class="text-[10px] font-normal">（水門降下・河水清澈）</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (widgetType === 'doubleSaleSim') {
+                const stageNotes = [
+                    '【階段 1：小辰與元元約定買賣】3D 廣場上小辰（中）與元元（左）亮起藍色「債權契約線（$5,000）」，但筆電尚未交付，僅具相對效力。',
+                    '【階段 2：小辰將筆電交付給阿庭】阿庭（右）出價 $6,000，小辰將電腦交付給阿庭！3D 場景中阿庭亮起金色「所有權（物權）護盾」！',
+                    '【階段 3：物權優先於債權】阿庭已取得電腦「物權（絕對權）」，優先於元元的「債權（相對權）」。元元不得向阿庭要電腦，只能向小辰求償。'
+                ];
+                return `
+                    <div class="p-3.5 rounded-2xl bg-sky-950/55 border border-sky-400/40 space-y-2.5">
+                        <div class="text-xs font-bold text-sky-300 flex items-center gap-1.5">
+                            <i data-lucide="cpu" class="w-4 h-4"></i>
+                            <span>3D 星球連動劇場：小辰、元元、阿庭一物二賣</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5">
+                            <button onclick="setDoubleSaleStage(0)" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.doubleSaleStage === 0 ? 'bg-sky-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">1. 元元簽約</button>
+                            <button onclick="setDoubleSaleStage(1)" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.doubleSaleStage === 1 ? 'bg-amber-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">2. 交付阿庭</button>
+                            <button onclick="setDoubleSaleStage(2)" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.doubleSaleStage === 2 ? 'bg-emerald-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">3. 物權優先</button>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-slate-900/90 text-[11px] text-slate-200 leading-relaxed border border-sky-500/30">
+                            ${stageNotes[state.doubleSaleStage]}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (widgetType === 'courtShieldSim') {
+                const claims = [
+                    '【所有物返還請求權】針對「無權占有或侵奪」：3D 法院啟動金色追回光束，命霸占者「把電腦還給我！」',
+                    '【妨害除去請求權】針對「現存進行中的妨害」：3D 法院啟動翠綠修復光束，要求弄壞電腦者修好或移開擋路違停！',
+                    '【妨害防止請求權】針對「未來有妨害之虞」：3D 法院啟動藍色預防護罩，預先禁止更動電腦設定或防範危牆倒塌！'
+                ];
+                return `
+                    <div class="p-3.5 rounded-2xl bg-purple-950/55 border border-purple-400/40 space-y-2.5">
+                        <div class="text-xs font-bold text-purple-300 flex items-center gap-1.5">
+                            <i data-lucide="shield-check" class="w-4 h-4"></i>
+                            <span>3D 法院防護罩切換：民法第 767 條三種請求權</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5">
+                            <button onclick="setCourtClaim(0)" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.courtClaimMode === 0 ? 'bg-amber-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">1. 返還請求</button>
+                            <button onclick="setCourtClaim(1)" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.courtClaimMode === 1 ? 'bg-emerald-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">2. 除去妨害</button>
+                            <button onclick="setCourtClaim(2)" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.courtClaimMode === 2 ? 'bg-sky-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">3. 防止妨害</button>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-slate-900/90 text-[11px] text-slate-200 leading-relaxed border border-purple-500/30">
+                            ${claims[state.courtClaimMode]}
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (widgetType === 'landStampSim') {
+                const stages = [
+                    { owner: '陳太太（原屋主）', note: '僅簽訂買賣契約，尚未至地政事務所登記，別墅燈號仍為紅色（陳太太所有）。' },
+                    { owner: '陳太太（原屋主）', note: '就算付清房款與拿鑰匙，依民法第 758 條「非經登記不生效力」，所有權仍未移轉！' },
+                    { owner: '林先生（新屋主）🎉', note: '3D 地政官印落下蓋章！完成土地登記簿移轉登記，別墅燈號轉為翠綠（林先生正式取得所有權）！' }
+                ];
+                return `
+                    <div class="p-3.5 rounded-2xl bg-rose-950/55 border border-rose-400/40 space-y-2.5">
+                        <div class="text-xs font-bold text-rose-300 flex items-center gap-1.5">
+                            <i data-lucide="stamp" class="w-4 h-4"></i>
+                            <span>3D 地政官印模擬：陳太太賣屋給林先生（民法 758 條）</span>
+                        </div>
+                        <div class="grid grid-cols-3 gap-1.5">
+                            <button onclick="setLandStage(0)" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.landRegStage === 0 ? 'bg-rose-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">1. 簽訂契約</button>
+                            <button onclick="setLandStage(1)" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.landRegStage === 1 ? 'bg-rose-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">2. 付清房款</button>
+                            <button onclick="setLandStage(2)" class="py-1.5 px-2 rounded-xl text-[11px] font-bold transition ${state.landRegStage === 2 ? 'bg-emerald-400 text-slate-950' : 'bg-slate-900 text-slate-300'}">3. 地政登記蓋印</button>
+                        </div>
+                        <div class="p-2.5 rounded-xl bg-slate-900/90 text-[11px] border border-rose-500/30">
+                            <div>法律上房屋所有權人：<span class="font-black text-amber-300">${stages[state.landRegStage].owner}</span></div>
+                            <div class="text-slate-300 mt-1">${stages[state.landRegStage].note}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            if (widgetType === 'arcadeClearance') {
+                return `
+                    <div class="p-3.5 rounded-2xl bg-amber-950/55 border border-amber-400/40 space-y-2.5">
+                        <div class="text-xs font-bold text-amber-300 flex items-center justify-between">
+                            <span class="flex items-center gap-1.5"><i data-lucide="footprints" class="w-4 h-4"></i> 3D 騎樓通行模擬：私有產權 vs. 公共利益</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setArcadeClear(true)" class="p-2 rounded-xl text-xs font-bold border transition ${state.arcadeClear ? 'bg-emerald-500/35 border-emerald-400 text-emerald-200' : 'bg-slate-900 border-slate-700 text-slate-400'}">
+                                🚶 內縮保留騎樓暢通<br><span class="text-[10px] font-normal">（3D 行人順暢避雨通行）</span>
+                            </button>
+                            <button onclick="setArcadeClear(false)" class="p-2 rounded-xl text-xs font-bold border transition ${!state.arcadeClear ? 'bg-rose-500/35 border-rose-400 text-rose-200' : 'bg-slate-900 border-slate-700 text-slate-400'}">
+                                🚧 私設路障封閉騎樓<br><span class="text-[10px] font-normal">（3D 行人被迫繞道車道）</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }
+            return '';
+        }
+
+        function renderStudentContent(z, zIdx) {
+            const isZoneUnlocked = state.unlockedZones[zIdx];
+
+            const questionsHTML = z.quests.map((qObj, qIdx) => {
+                const key = `${zIdx}_${qIdx}`;
+                const chosen = state.questAnswers[key];
+                const isCorrect = chosen === qObj.correct;
+
+                const optsHTML = qObj.options.map((optText, oIdx) => {
+                    let btnStyle = 'bg-slate-900/85 hover:bg-slate-800 border-slate-700 text-slate-200';
+                    if (chosen !== undefined) {
+                        if (oIdx === qObj.correct) {
+                            btnStyle = 'bg-emerald-500/25 border-emerald-400 text-emerald-200 font-bold';
+                        } else if (oIdx === chosen && chosen !== qObj.correct) {
+                            btnStyle = 'bg-rose-500/25 border-rose-400 text-rose-200';
+                        } else {
+                            btnStyle = 'bg-slate-900/40 border-slate-800 text-slate-500';
+                        }
+                    }
+                    return `
+                        <button onclick="submitQuestAnswer(${zIdx}, ${qIdx}, ${oIdx})" class="w-full text-left p-3 rounded-xl border text-xs transition flex items-start justify-between gap-2 ${btnStyle}">
+                            <span>${optText}</span>
+                            ${chosen !== undefined && oIdx === qObj.correct ? '<span class="text-emerald-400 font-black shrink-0">✓</span>' : ''}
+                        </button>
+                    `;
+                }).join('');
+
+                return `
+                    <div class="p-4 rounded-2xl bg-slate-900/85 border border-slate-700/90 space-y-3">
+                        <div class="text-xs font-bold text-white leading-relaxed">${qObj.q}</div>
+                        <div class="space-y-2">${optsHTML}</div>
+                        ${chosen !== undefined ? `
+                            <div class="p-3 rounded-xl text-xs leading-relaxed ${isCorrect ? 'bg-emerald-950/85 border border-emerald-500/40 text-emerald-200' : 'bg-rose-950/85 border border-rose-500/40 text-rose-200'}">
+                                <div class="font-bold mb-0.5">${isCorrect ? '🎯 法律判決正確！' : '💡 觀念提醒（請改選正確答案以解鎖建築）：'}</div>
+                                <div>${qObj.explanation}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+
+            return `
+                <div class="p-3.5 rounded-2xl ${isZoneUnlocked ? 'bg-emerald-500/15 border-emerald-400/40' : 'bg-indigo-500/15 border-indigo-400/40'} border flex items-center justify-between gap-3">
+                    <div>
+                        <div class="text-xs font-bold ${isZoneUnlocked ? 'text-emerald-300' : 'text-indigo-300'}">
+                            ${isZoneUnlocked ? '🏆 本座 3D 建築信標已成功點亮！' : '🕵️ 星球調查任務：答對下方 2 題即可點亮建築翠綠水晶信標'}
+                        </div>
+                        <div class="text-[11px] text-slate-300 mt-0.5">${z.legalBadge}</div>
+                    </div>
+                    <div class="text-lg font-black ${isZoneUnlocked ? 'text-emerald-400' : 'text-amber-300'} shrink-0">+100 XP</div>
+                </div>
+                ${questionsHTML}
+            `;
+        }
+
+        function submitQuestAnswer(zIdx, qIdx, oIdx) {
+            const key = `${zIdx}_${qIdx}`;
+            state.questAnswers[key] = oIdx;
+
+            const z = ZONES_DATA[zIdx];
+            const isThisCorrect = oIdx === z.quests[qIdx].correct;
+            playTone(isThisCorrect ? 'correct' : 'wrong');
+
+            const allCorrect = z.quests.every((q, idx) => state.questAnswers[`${zIdx}_${idx}`] === q.correct);
+            if (allCorrect && !state.unlockedZones[zIdx]) {
+                state.unlockedZones[zIdx] = true;
+                state.xp = state.unlockedZones.filter(Boolean).length * 100;
+                spawnUnlockParticles(new THREE.Vector3(z.pos.x, 0.5, z.pos.z));
+            }
+            renderUI();
+        }
+
+        // 3D Mechanism Handlers
+        function setZone1Inspect(mode) {
+            playTone('switch');
+            state.zone1InspectMode = mode;
+            if (z1FoundationWire) {
+                z1FoundationWire.material.opacity = mode === 'immovable' ? 0.9 : 0.0;
+            }
+            renderUI();
+        }
+
+        function setRiverRegulation(isRegulated) {
+            playTone('switch');
+            state.riverManaged = isRegulated;
+            if (riverWaterMesh) {
+                riverWaterMesh.material.color.setHex(isRegulated ? 0x0ea5e9 : 0x65a30d);
+            }
+            riverBubbles.forEach(b => {
+                b.material.color.setHex(isRegulated ? 0xbae6fd : 0xa3e635);
+            });
+            renderUI();
+        }
+
+        function setDoubleSaleStage(stageIdx) {
+            playTone('switch');
+            state.doubleSaleStage = stageIdx;
+            if (z3BondLine && z3TingShield && z3LaptopGroup) {
+                if (stageIdx === 0) {
+                    z3BondLine.visible = true;
+                    z3TingShield.material.opacity = 0.0;
+                    z3LaptopGroup.position.set(0.0, 3.3, -0.8);
+                } else if (stageIdx === 1) {
+                    z3BondLine.visible = true;
+                    z3TingShield.material.opacity = 0.85;
+                    z3LaptopGroup.position.set(1.6, 3.3, 0.6); // Laptop moves toward Ting!
+                } else {
+                    z3BondLine.visible = false;
+                    z3TingShield.material.opacity = 1.0;
+                    z3LaptopGroup.position.set(1.6, 3.3, 0.6);
+                }
+            }
+            renderUI();
+        }
+
+        function setCourtClaim(claimIdx) {
+            playTone('switch');
+            state.courtClaimMode = claimIdx;
+            if (z4LaserShield) {
+                const colors = [0xfacc15, 0x10b981, 0x38bdf8];
+                z4LaserShield.material.color.setHex(colors[claimIdx]);
+            }
+            renderUI();
+        }
+
+        function setLandStage(stageIdx) {
+            playTone(stageIdx === 2 ? 'correct' : 'switch');
+            state.landRegStage = stageIdx;
+            if (z5OwnerBannerMat && z5VillaRoof) {
+                if (stageIdx === 2) {
+                    z5OwnerBannerMat.color.setHex(0x10b981);
+                    z5OwnerBannerMat.emissive.setHex(0x065f46);
+                    z5VillaRoof.material.color.setHex(0x10b981);
+                } else {
+                    z5OwnerBannerMat.color.setHex(0xf43f5e);
+                    z5OwnerBannerMat.emissive.setHex(0x881337);
+                    z5VillaRoof.material.color.setHex(0xf97316);
+                }
+            }
+            renderUI();
+        }
+
+        function setArcadeClear(isClear) {
+            playTone('switch');
+            state.arcadeClear = isClear;
+            if (z6ArcadeObstacles) {
+                z6ArcadeObstacles.visible = !isClear;
+            }
+            renderUI();
+        }
+
+        function renderDockAndDots() {
+            const dock = document.getElementById('dock-buttons');
+            dock.innerHTML = ZONES_DATA.map((z, idx) => {
+                const isActive = state.currentZoneIndex === idx;
+                const isUnlocked = state.unlockedZones[idx];
+                return `
+                    <button onclick="focusZone(${idx})" class="px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shrink-0 transition-all ${
+                        isActive
+                            ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/25'
+                            : 'bg-slate-800/90 hover:bg-slate-700 text-slate-300'
+                    }">
+                        <span class="w-4 h-4 rounded-full ${isUnlocked ? 'bg-emerald-500 text-slate-950' : 'bg-slate-950/60 text-amber-300'} flex items-center justify-center text-[10px] font-black">
+                            ${isUnlocked ? '✓' : z.step}
+                        </span>
+                        <span>${z.shortTitle}</span>
+                    </button>
+                `;
+            }).join('');
+
+            const dots = document.getElementById('footer-progress-dots');
+            dots.innerHTML = ZONES_DATA.map((_, idx) => `
+                <button onclick="focusZone(${idx})" class="h-2 rounded-full transition-all ${
+                    state.currentZoneIndex === idx ? 'w-6 bg-amber-400' : state.unlockedZones[idx] ? 'w-2 bg-emerald-400' : 'w-2 bg-slate-700'
+                }"></button>
+            `).join('');
+        }
+
+        /********************************************************************
+         * 8. CERTIFICATE & LEARNING PORTFOLIO MODAL
+         ********************************************************************/
+        function openCertificateModal() {
+            const unlockedCount = state.unlockedZones.filter(Boolean).length;
+            const rankTitle = unlockedCount === 6 ? '🏆 星際最高大法官・物權大師' : unlockedCount >= 3 ? '⚖️ 資深星際法治官' : '🌱 見習星際公民';
+
+            document.getElementById('cert-progress-text').textContent = `${unlockedCount} / 6 座建築解鎖`;
+            document.getElementById('cert-xp-text').textContent = `${state.xp} XP · ${rankTitle}`;
+
+            const listEl = document.getElementById('cert-zone-list');
+            listEl.innerHTML = ZONES_DATA.map((z, idx) => {
+                const done = state.unlockedZones[idx];
+                return `
+                    <div class="p-3 rounded-xl border ${done ? 'bg-emerald-950/40 border-emerald-500/40' : 'bg-slate-900/60 border-slate-800'} flex items-start gap-2.5">
+                        <div class="w-6 h-6 rounded-lg ${done ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-slate-400'} flex items-center justify-center font-black text-xs shrink-0 mt-0.5">
+                            ${done ? '✓' : z.step}
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-white">${z.name}（${z.page}）</div>
+                            <div class="text-[11px] text-amber-300/90 mt-0.5">${z.legalBadge}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('certificate-modal').classList.remove('hidden');
+            lucide.createIcons();
+        }
+
+        function closeCertificateModal() {
+            document.getElementById('certificate-modal').classList.add('hidden');
+        }
+
+        function copySummaryToClipboard() {
+            const name = document.getElementById('student-name-input').value || '未填寫姓名';
+            const reflection = document.getElementById('student-reflection').value || '（未填寫心得）';
+            const unlockedCount = state.unlockedZones.filter(Boolean).length;
+
+            const summaryText = [
+                `【3D 知識星球：公民與社會 2 所有權的物權特性 學習歷程單】`,
+                `班級姓名：${name}`,
+                `任務解鎖進度：${unlockedCount} / 6 座建築 (${state.xp} XP)`,
+                `已解鎖主題：${ZONES_DATA.filter((_, i) => state.unlockedZones[i]).map(z => z.name).join('、') || '尚無'}`,
+                `公民論壇思辨心得：${reflection}`
+            ].join('\n');
+
+            const tempArea = document.createElement('textarea');
+            tempArea.value = summaryText;
+            document.body.appendChild(tempArea);
+            tempArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempArea);
+
+            const copyBtnText = document.getElementById('copy-btn-text');
+            copyBtnText.textContent = '✓ 已複製到剪貼簿！';
+            setTimeout(() => {
+                copyBtnText.textContent = '複製學習紀錄文字';
+            }, 2000);
+        }
+
+        /********************************************************************
+         * 9. MAIN ANIMATION LOOP (3D Physics, Camera Lerp & Organ Animations)
+         ********************************************************************/
+        const clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const t = clock.getElapsedTime();
+
+            // Smooth Camera Fly-To & Zoom Interpolation
+            if (isCameraTweening) {
+                camera.position.lerp(camTargetPos, 0.065);
+                controls.target.lerp(controlsTargetPos, 0.08);
+                camera.zoom += (targetZoom - camera.zoom) * 0.07;
+                camera.updateProjectionMatrix();
+
+                if (
+                    camera.position.distanceTo(camTargetPos) < 0.1 &&
+                    controls.target.distanceTo(controlsTargetPos) < 0.1 &&
+                    Math.abs(camera.zoom - targetZoom) < 0.01
+                ) {
+                    isCameraTweening = false;
+                }
+            }
+
+            controls.update();
+
+            // Orbiting Asteroids / Moons around the Knowledge Planet
+            if (satellitesGroup) {
+                satellitesGroup.rotation.y = t * 0.18;
+            }
+
+            // Floating Beacons
+            beaconMeshes.forEach((b, idx) => {
+                b.rotation.y = t * 1.5 + idx;
+                b.position.y = 6.5 + Math.sin(t * 2.4 + idx) * 0.25;
+            });
+
+            // Zone 1: Movable Property Levitation when inspected
+            if (z1MovableGroup) {
+                const targetY = state.zone1InspectMode === 'movable' ? 0.85 + Math.sin(t * 4) * 0.22 : 0;
+                z1MovableGroup.position.y += (targetY - z1MovableGroup.position.y) * 0.1;
+            }
+
+            // Zone 2: Water Gate & River Bubbles animation
+            if (riverGateMesh) {
+                const gateTargetY = state.riverManaged ? 1.15 : 2.65;
+                riverGateMesh.position.y += (gateTargetY - riverGateMesh.position.y) * 0.08;
+            }
+            riverBubbles.forEach((b, idx) => {
+                b.position.z += 0.035;
+                b.position.y = 0.5 + Math.sin(t * 3 + idx) * 0.12;
+                if (b.position.z > -3.2) b.position.z = -13.2;
+            });
+
+            // Zone 3: Laptop rotation & Ownership Shield rotation
+            if (z3LaptopGroup) {
+                z3LaptopGroup.rotation.y = Math.sin(t * 0.9) * 0.35;
+            }
+            if (z3TingShield) {
+                z3TingShield.rotation.y = t * 1.8;
+            }
+
+            // Zone 4: Courthouse Scales of Justice & Laser Shield
+            if (z4ScaleBeam) {
+                z4ScaleBeam.rotation.z = Math.sin(t * 1.8) * 0.14;
+            }
+            if (z4LaserShield) {
+                z4LaserShield.rotation.y = t * 0.5;
+            }
+
+            // Zone 5: Official Land Stamp press animation
+            if (z5StampGroup) {
+                const stampTargetY = state.landRegStage === 2 ? 3.85 + Math.abs(Math.sin(t * 3)) * 0.35 : 4.45;
+                z5StampGroup.position.y += (stampTargetY - z5StampGroup.position.y) * 0.12;
+            }
+
+            // Zone 6: Pedestrian walking through Taiwan Arcade (or detoured onto road if blocked!)
+            if (z6PedestrianMesh) {
+                z6PedestrianMesh.position.x = Math.sin(t * 1.4) * 2.1;
+                const walkZ = state.arcadeClear ? 0.95 : 2.65; // Forced out of arcade if blocked!
+                z6PedestrianMesh.position.z += (walkZ - z6PedestrianMesh.position.z) * 0.1;
+            }
+
+            // Update Celebration Particles
+            for (let i = celebrationParticles.length - 1; i >= 0; i--) {
+                const p = celebrationParticles[i];
+                p.mesh.position.add(p.vel);
+                p.vel.y -= 0.006;
+                p.life -= 0.018;
+                p.mesh.scale.setScalar(Math.max(p.life, 0.01));
+                if (p.life <= 0) {
+                    planetGroup.remove(p.mesh);
+                    celebrationParticles.splice(i, 1);
+                }
+            }
+
+            // Hover highlight scale on 3D buildings
+            buildingGroups.forEach((grp, idx) => {
+                const s = hoveredZoneIndex === idx ? 1.045 : 1.0;
+                grp.scale.lerp(new THREE.Vector3(s, s, s), 0.12);
+            });
+
+            renderer.render(scene, camera);
+            updatePinScreenPositions();
+        }
+
+        window.onload = function () {
+            initThreePlanet();
+            renderUI();
+            animate();
+        };
+    </script>
+</body>
+</html>
